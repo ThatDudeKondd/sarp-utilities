@@ -108,26 +108,24 @@ export default {
       }
 
       const embed = baseEmbed(CONSTANTS.EMBED_COLOR);
+      const staffLinks = await Promise.all(
+        staff.map(async (p) =>
+          makeRobloxProfileLink(Number(p.Player.split(":")[1])),
+        ),
+      );
+      const nonStaffLinks = await Promise.all(
+        nonStaff.map(async (p) =>
+          makeRobloxProfileLink(Number(p.Player.split(":")[1])),
+        ),
+      );
       embed.addFields({
         name: "Staff",
-        value:
-          staff
-            .map(
-              async (p) =>
-                `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
-            )
-            .join(", ") || ">No players online.",
+        value: staffLinks.join(", ") || "> No players online.",
         inline: false,
       });
       embed.addFields({
         name: "Players",
-        value:
-          nonStaff
-            .map(
-              async (p) =>
-                `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
-            )
-            .join(", ") || ">No players online.",
+        value: nonStaffLinks.join(", ") || "> No players online.",
         inline: false,
       });
       await ctx.editReply({ embeds: [embed] });
