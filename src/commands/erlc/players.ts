@@ -79,7 +79,7 @@ export default {
 
     try {
       const response = await fetch(
-        `${config.erlcApiBaseUrl}?Players=true`,
+        `${config.erlcApiBaseUrl}?Queue=true&Players=true`,
         config.getOptions,
       );
       if (!response.ok) {
@@ -118,6 +118,11 @@ export default {
           makeRobloxProfileLink(Number(p.Player.split(":")[1]), p.Team),
         ),
       );
+      const queueLinks = await Promise.all(
+        (data.Queue || []).map((userId) =>
+          makeRobloxProfileLink(userId, "Queue"),
+        ),
+      );
       embed.setTitle(`Server Players [${players.length}]`);
       embed.addFields({
         name: `Server Staff [${staff.length}]`,
@@ -127,6 +132,11 @@ export default {
       embed.addFields({
         name: `Online Players [${nonStaff.length}]`,
         value: nonStaffLinks.join(", ") || "> No players online.",
+        inline: false,
+      });
+      embed.addFields({
+        name: `Queue [${queueLinks.length}]`,
+        value: queueLinks.join(", ") || "> No players in queue.",
         inline: false,
       });
       await ctx.editReply({ embeds: [embed] });
