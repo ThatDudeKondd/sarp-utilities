@@ -70,11 +70,11 @@ export default {
       }
     };
 
-    const makeRobloxProfileLink = async (id: number) => {
+    const makeRobloxProfileLink = async (id: number, team: string) => {
       const userId = String(id);
       const username = (await fetchRobloxUsername(id)) || id;
       const profileUrl = config.robloxUserPageUrl.replace("<USER_ID>", userId);
-      return `[${username}:${userId}](${profileUrl})`;
+      return `[${username} (${team})](${profileUrl})`;
     };
 
     try {
@@ -109,15 +109,13 @@ export default {
 
       const embed = baseEmbed(CONSTANTS.EMBED_COLOR);
       const staffLinks = await Promise.all(
-        staff.map(
-          async (p) =>
-            `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))} (${p.Team})`,
+        staff.map(async (p) =>
+          makeRobloxProfileLink(Number(p.Player.split(":")[1]), p.Team),
         ),
       );
       const nonStaffLinks = await Promise.all(
-        nonStaff.map(
-          async (p) =>
-            `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))} (${p.Team})`,
+        nonStaff.map(async (p) =>
+          makeRobloxProfileLink(Number(p.Player.split(":")[1]), p.Team),
         ),
       );
       embed.addFields({
