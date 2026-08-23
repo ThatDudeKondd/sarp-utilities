@@ -109,13 +109,15 @@ export default {
 
       const embed = baseEmbed(CONSTANTS.EMBED_COLOR);
       const staffLinks = await Promise.all(
-        staff.map(async (p) =>
-          makeRobloxProfileLink(Number(p.Player.split(":")[1])),
+        staff.map(
+          async (p) =>
+            `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))} (${p.Team})`,
         ),
       );
       const nonStaffLinks = await Promise.all(
-        nonStaff.map(async (p) =>
-          makeRobloxProfileLink(Number(p.Player.split(":")[1])),
+        nonStaff.map(
+          async (p) =>
+            `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))} (${p.Team})`,
         ),
       );
       embed.addFields({
