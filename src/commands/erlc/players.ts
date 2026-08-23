@@ -89,6 +89,7 @@ export default {
         value: nonStaff.map((p) => `- ${p.Player}`).join("\n") || "None",
         inline: false,
       });
+      await ctx.editReply({ embeds: [embed] });
     } catch (err) {
       logger.error(`Failed to fetch players: ${err}`);
       await logCommandError(ctx, "/erlc players", err).catch(() => {});
