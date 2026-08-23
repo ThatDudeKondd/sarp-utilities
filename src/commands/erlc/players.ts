@@ -74,7 +74,7 @@ export default {
       const userId = String(id);
       const username = (await fetchRobloxUsername(id)) || id;
       const profileUrl = config.robloxUserPageUrl.replace("<USER_ID>", userId);
-      return `[${username} (${team})](${profileUrl})`;
+      return `[${username}(${team})](${profileUrl})`;
     };
 
     try {
