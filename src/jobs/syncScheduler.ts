@@ -4,7 +4,7 @@ import { sendToLogsChannel } from "../utils/logChannel.js";
 import { CONSTANTS } from "../config/constants.js";
 import { logger } from "../utils/logger.js";
 
-const DEFAULT_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
+const DEFAULT_INTERVAL_MS = 1 * 60 * 60 * 1000; // every 6 hours
 
 /**
  * Runs syncGuildMembers for every guild the bot is in, on a fixed interval.
