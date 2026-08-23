@@ -14,8 +14,6 @@ import { onInteractionCreate } from "./events/interactionCreate.js";
 import { CommandLoader } from "./loaders/unifiedCommandLoader.js";
 import { setCommandRegistry } from "./loaders/commandRegistry.js";
 import { UnifiedCommand } from "./types/UnifiedCommand.js";
-// djsko currently does not publish TypeScript declarations.
-// @ts-expect-error -- use the package's runtime export until declarations are available.
 import { Jishaku } from "djsko";
 
 // Get __dirname equivalent for ESM
