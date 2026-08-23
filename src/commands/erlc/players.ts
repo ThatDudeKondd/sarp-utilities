@@ -78,7 +78,8 @@ export default {
         }
       }
 
-      logger.info(`Fetched ${players.length} players from ERLC API`, staff);
+      logger.info(`Fetched ${staff.length} staff.`, staff);
+      logger.info(`Fetched ${nonStaff.length} non-staff.`, nonStaff);
 
       const embed = baseEmbed(CONSTANTS.EMBED_COLOR);
     } catch (err) {
