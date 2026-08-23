@@ -1,7 +1,11 @@
 import { SubCommand } from "../../types/UnifiedCommand.js";
 import { config } from "../../config/config.js";
 import { baseEmbed, createErrorEmbed } from "../../utils/formatters.js";
-import { CONSTANTS, ErlcServerInfo } from "../../config/constants.js";
+import {
+  CONSTANTS,
+  ErlcServerInfo,
+  RobloxAPIResponse,
+} from "../../config/constants.js";
 import { logger } from "../../utils/logger.js";
 import { MessageFlags } from "discord.js";
 import { GuildConfigService } from "../../services/GuildConfigService.js";
@@ -48,6 +52,31 @@ export default {
       return;
     }
 
+    const fetchRobloxUsername = async (userId: number) => {
+      try {
+        const response = await fetch(
+          `https://users.roblox.com/v1/users/${encodeURIComponent(userId)}`,
+        );
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch Roblox user page for user ID ${userId}`,
+          );
+        }
+        const info = (await response.json()) as RobloxAPIResponse;
+        return info.name || "Unknown";
+      } catch (error) {
+        logger.warn(`Failed to fetch Roblox username for: ${userId}.`, error);
+        return "Unknown";
+      }
+    };
+
+    const makeRobloxProfileLink = async (id: number) => {
+      const userId = String(id);
+      const username = (await fetchRobloxUsername(id)) || id;
+      const profileUrl = config.robloxUserPageUrl.replace("<USER_ID>", userId);
+      return `[${username}:${userId}](${profileUrl})`;
+    };
+
     try {
       const response = await fetch(
         `${config.erlcApiBaseUrl}?Players=true`,
@@ -81,12 +110,22 @@ export default {
       const embed = baseEmbed(CONSTANTS.EMBED_COLOR);
       embed.addFields({
         name: "Staff",
-        value: staff.map((p) => `- ${p.Player}`).join("\n") || "None",
+        value:
+          staff
+            .map(
+              (p) => `${makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
+            )
+            .join(", ") || ">No players online.",
         inline: false,
       });
       embed.addFields({
         name: "Players",
-        value: nonStaff.map((p) => `- ${p.Player}`).join("\n") || "None",
+        value:
+          nonStaff
+            .map(
+              (p) => `${makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
+            )
+            .join(", ") || ">No players online.",
         inline: false,
       });
       await ctx.editReply({ embeds: [embed] });
