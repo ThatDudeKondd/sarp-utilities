@@ -123,6 +123,10 @@ export default {
           makeRobloxProfileLink(userId, "Queue"),
         ),
       );
+      embed.setAuthor({
+        name: data.Name || "ER:LC Server",
+        iconURL: ctx.guild?.iconURL() ?? undefined,
+      });
       embed.setTitle(`Server Players [${players.length}]`);
       embed.addFields({
         name: `Server Staff [${staff.length}]`,
