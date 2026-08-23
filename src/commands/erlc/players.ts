@@ -113,7 +113,8 @@ export default {
         value:
           staff
             .map(
-              (p) => `${makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
+              async (p) =>
+                `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
             )
             .join(", ") || ">No players online.",
         inline: false,
@@ -123,7 +124,8 @@ export default {
         value:
           nonStaff
             .map(
-              (p) => `${makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
+              async (p) =>
+                `${await makeRobloxProfileLink(Number(p.Player.split(":")[1]))}`,
             )
             .join(", ") || ">No players online.",
         inline: false,
