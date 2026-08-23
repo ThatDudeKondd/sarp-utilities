@@ -78,10 +78,17 @@ export default {
         }
       }
 
-      logger.info(`Fetched ${staff.length} staff.`, staff);
-      logger.info(`Fetched ${nonStaff.length} non-staff.`, nonStaff);
-
       const embed = baseEmbed(CONSTANTS.EMBED_COLOR);
+      embed.addFields({
+        name: "Staff",
+        value: staff.map((p) => `- ${p.Player}`).join("\n") || "None",
+        inline: false,
+      });
+      embed.addFields({
+        name: "Players",
+        value: nonStaff.map((p) => `- ${p.Player}`).join("\n") || "None",
+        inline: false,
+      });
     } catch (err) {
       logger.error(`Failed to fetch players: ${err}`);
       await logCommandError(ctx, "/erlc players", err).catch(() => {});
