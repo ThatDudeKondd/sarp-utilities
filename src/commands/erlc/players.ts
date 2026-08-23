@@ -118,13 +118,14 @@ export default {
           makeRobloxProfileLink(Number(p.Player.split(":")[1]), p.Team),
         ),
       );
+      embed.setTitle(`Server Players [${players.length}]`);
       embed.addFields({
-        name: "Staff",
+        name: `Server Staff [${staff.length}]`,
         value: staffLinks.join(", ") || "> No players online.",
         inline: false,
       });
       embed.addFields({
-        name: "Players",
+        name: `Online Players [${nonStaff.length}]`,
         value: nonStaffLinks.join(", ") || "> No players online.",
         inline: false,
       });
