@@ -33,11 +33,7 @@ let slashData: SlashCommandBuilder[] = [];
 
 const jsk = new Jishaku(client, {
   prefix: "-", // Root command becomes `.jsk`. Default: '.'
-  owners: [
-    "726507399640252416",
-    "1383717448804470817",
-    "1092489655888379915",
-  ], // Optional; defaults to the application owner/team.
+  owners: ["726507399640252416", "1383717448804470817", "1092489655888379915"], // Optional; defaults to the application owner/team.
   shellOwners: ["726507399640252416"],
   encoding: "UTF-8", // Use 'Shift_JIS' for Japanese Windows shell output.
   updateCommand: "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
