@@ -36,7 +36,6 @@ const jsk = new Jishaku(client, {
   owners: [
     "726507399640252416",
     "1383717448804470817",
-    "1355621905658548357",
     "1092489655888379915",
   ], // Optional; defaults to the application owner/team.
   shellOwners: ["726507399640252416"],
