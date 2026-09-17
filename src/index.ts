@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Client, SlashCommandBuilder } from "discord.js";
+import { ActivityType, Client, SlashCommandBuilder } from "discord.js";
 import { resolve } from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -57,6 +57,10 @@ async function initializeBot() {
     aliases = loaded.byAlias;
     slashData = loaded.slashData;
     setCommandRegistry(commands);
+
+    await client.user?.setActivity("Serving San Andreas Roleplay", {
+      type: ActivityType.Playing,
+    });
 
     logger.success("✅ Bot initialized successfully");
   } catch (error) {
