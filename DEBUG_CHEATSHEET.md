@@ -93,7 +93,7 @@ systemctl --user list-units --type=service
 Trigger a deploy right now, without waiting on a push or the timer:
 
 ```
-/opt/sarp-project/SARP-Utilities/deploy-sarp.sh
+/opt/sarp-project/sarp-utilities/deploy-sarp.sh
 ```
 
 Restart just the bot (e.g. after manually editing `.env`):
@@ -128,9 +128,33 @@ psql -U sarp_bot -d sarp_utilities -h localhost -W
 Run as `kondd` if `sarp` can't read/write something in `/opt/sarp-project`:
 
 ```
-sudo ls -la /opt/sarp-project/SARP-Utilities
+sudo ls -la /opt/sarp-project/sarp-utilities
 sudo chown -R sarp:sarp /opt/sarp-project/
 ```
+
+## Docker
+
+Bot runs as a container (`--rm --name sarp-utilities`), not a bare `node`
+process — `journalctl` above still works since it's foregrounded under
+systemd, but these are useful too:
+
+```
+docker ps                                  # confirm it's up, check uptime
+docker logs -f sarp-utilities              # same output as journalctl, if you're already at a docker prompt
+docker exec -it sarp-utilities sh          # shell into the running container
+```
+
+Rebuild the image manually (context must be repo root, not this directory):
+
+```
+cd /opt/sarp-project
+docker build -f sarp-utilities/Dockerfile -t sarp-utilities:latest .
+```
+
+If `.env` was edited and the container fails with `TokenInvalid` or an
+`invalid env file` error, check for values wrapped in quotes or key names
+with trailing spaces (`KEY = value`) — `systemd`'s `EnvironmentFile=`
+tolerated both, but Docker's `--env-file` doesn't.
 
 ## GitHub side
 

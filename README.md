@@ -277,6 +277,30 @@ View bot logs with timestamps:
 [2024-01-15T10:30:46.456Z] [SUCCESS] Bot ready!
 ```
 
+## 🐳 Production Deployment
+
+Production runs this bot (and its `djsko` dependency) in Docker, supervised by a
+systemd `--user` service — not raw `node`/`npm`.
+
+- **Image**: multi-stage build from `Dockerfile`. Build context must be the repo
+  root (`/opt/sarp-project`), not `sarp-utilities/`, since it also copies the
+  sibling `djsko` workspace member:
+  ```bash
+  cd /opt/sarp-project
+  docker build -f sarp-utilities/Dockerfile -t sarp-utilities:latest .
+  ```
+- **Process supervisor inside the container**: `pm2-runtime` via
+  `ecosystem.config.cjs` (single fork instance — the bot owns one Discord
+  gateway connection).
+- **systemd unit** (`sarp-utilities.service`): `ExecStart=docker run --rm
+  --name sarp-utilities --network host --env-file .env sarp-utilities:latest`.
+  `--network host` lets the container reach Postgres on `localhost:5432`.
+- **Auto-deploy**: `deploy-sarp.sh` is triggered either by a GitHub webhook
+  (push to `main` on `sarp-utilities` or `djsko`) or a 5-minute polling timer
+  as a fallback. It pulls both repos, rebuilds the image, runs a one-shot
+  `docker run ... npm run db:update` migration container, then restarts the
+  systemd service. See `DEBUG_CHEATSHEET.md` for troubleshooting commands.
+
 ## 🤝 Contributing
 
 1. Create a feature branch
