@@ -5,7 +5,14 @@ const { exec } = require("child_process");
 
 const PORT = 9000;
 const SECRET = process.env.WEBHOOK_SECRET;
-const DEPLOY_SCRIPT = "/opt/sarp-project/SARP-Utilities/deploy-sarp.sh";
+
+// Repo full_name -> deploy script. Add a new project here rather than
+// standing up a whole second tunnel/receiver/webhook secret for it.
+const DEPLOY_SCRIPTS = {
+  "ThatDudeKondd/SARP-Utilities": "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
+  "ThatDudeKondd/djsko": "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
+  "ThatDudeKondd/sarp-tickets": "/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh",
+};
 
 if (!SECRET) {
   console.error("WEBHOOK_SECRET not set, exiting.");
@@ -60,12 +67,20 @@ const server = http.createServer((req, res) => {
       return res.end("Ignored (not main branch)");
     }
 
-    const repoName = payload.repository ? payload.repository.full_name : "unknown";
+    const repoName = payload.repository ? payload.repository.full_name : null;
+    const deployScript = repoName && DEPLOY_SCRIPTS[repoName];
+
+    if (!deployScript) {
+      console.log(`[${new Date().toISOString()}] No deploy script configured for ${repoName}`);
+      res.writeHead(200);
+      return res.end("Ignored (unconfigured repo)");
+    }
+
     console.log(`[${new Date().toISOString()}] Push to main on ${repoName}, triggering deploy`);
     res.writeHead(200);
     res.end("Deploy triggered");
 
-    exec(DEPLOY_SCRIPT, (err, stdout, stderr) => {
+    exec(deployScript, (err, stdout, stderr) => {
       if (stdout) console.log(stdout);
       if (stderr) console.error(stderr);
       if (err) console.error(`Deploy script exited with error: ${err.message}`);

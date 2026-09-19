@@ -3,5 +3,6 @@ dist/
 .env
 .DS_Store
 *.log
+*.tsbuildinfo
 
 /src/generated/prisma

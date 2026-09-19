@@ -9,7 +9,7 @@ if ! flock -n 200; then
 fi
 
 ROOT_DIR="/opt/sarp-project"
-BOT_DIR="$ROOT_DIR/SARP-Utilities"
+BOT_DIR="$ROOT_DIR/sarp-utilities"
 DJSKO_DIR="$ROOT_DIR/djsko"
 BRANCH="main"
 
@@ -33,16 +33,11 @@ if [ "$CHANGED" -eq 0 ]; then
 fi
 
 cd "$ROOT_DIR"
-npm install
+docker build -f sarp-utilities/Dockerfile -t sarp-utilities:latest .
 
-# db:update (format -> db push -> generate) runs from within the bot's
-# workspace so it picks up SARP-Utilities/package.json's script definitions.
-# Prisma client must exist before the build compiles
-# src/generated/prisma -> dist/generated/prisma, which db:update's final
-# generate step handles.
-npm run db:update --workspace=SARP-Utilities
-
-npm run build
+# --network host lets the throwaway container reach Postgres at
+# localhost:5432 the same way the systemd-run container does.
+docker run --rm --network host --env-file sarp-utilities/.env sarp-utilities:latest npm run db:update
 
 systemctl --user restart sarp-utilities.service
 
