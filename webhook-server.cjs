@@ -6,12 +6,16 @@ const { exec } = require("child_process");
 const PORT = 9000;
 const SECRET = process.env.WEBHOOK_SECRET;
 
-// Repo full_name -> deploy script. Add a new project here rather than
+// Repo full_name -> deploy script(s) to run. Add a new project here rather than
 // standing up a whole second tunnel/receiver/webhook secret for it.
 const DEPLOY_SCRIPTS = {
-  "ThatDudeKondd/SARP-Utilities": "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
-  "ThatDudeKondd/djsko": "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
-  "ThatDudeKondd/sarp-tickets": "/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh",
+  "ThatDudeKondd/SARP-Utilities": ["/opt/sarp-project/sarp-utilities/deploy-sarp.sh"],
+  // djsko is a shared dependency of both bots -- redeploy both on a new release.
+  "ThatDudeKondd/djsko": [
+    "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
+    "/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh",
+  ],
+  "ThatDudeKondd/sarp-tickets": ["/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh"],
 };
 
 if (!SECRET) {
@@ -68,9 +72,9 @@ const server = http.createServer((req, res) => {
     }
 
     const repoName = payload.repository ? payload.repository.full_name : null;
-    const deployScript = repoName && DEPLOY_SCRIPTS[repoName];
+    const deployScripts = repoName && DEPLOY_SCRIPTS[repoName];
 
-    if (!deployScript) {
+    if (!deployScripts) {
       console.log(`[${new Date().toISOString()}] No deploy script configured for ${repoName}`);
       res.writeHead(200);
       return res.end("Ignored (unconfigured repo)");
@@ -80,11 +84,13 @@ const server = http.createServer((req, res) => {
     res.writeHead(200);
     res.end("Deploy triggered");
 
-    exec(deployScript, (err, stdout, stderr) => {
-      if (stdout) console.log(stdout);
-      if (stderr) console.error(stderr);
-      if (err) console.error(`Deploy script exited with error: ${err.message}`);
-    });
+    for (const deployScript of deployScripts) {
+      exec(deployScript, (err, stdout, stderr) => {
+        if (stdout) console.log(stdout);
+        if (stderr) console.error(stderr);
+        if (err) console.error(`Deploy script exited with error: ${err.message}`);
+      });
+    }
   });
 });
 
