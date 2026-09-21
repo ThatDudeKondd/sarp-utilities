@@ -16,6 +16,7 @@ const DEPLOY_SCRIPTS = {
     "/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh",
   ],
   "ThatDudeKondd/sarp-tickets": ["/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh"],
+  "ThatDudeKondd/sarp-tickets-web": ["/opt/sarp-project/sarp-tickets-web/deploy-sarp-tickets-web.sh"],
 };
 
 if (!SECRET) {
