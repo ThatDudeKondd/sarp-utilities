@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Promotes testing -> prod: fast-forwards main to testing in every repo this
-# bot deploys from, then runs the normal deploy (pull, rebuild, restart).
+# bot deploys from. The push fires the GitHub webhook, which deploys.
 # Paths/branch mirror deploy-sarp.sh.
 set -euo pipefail
 
@@ -29,6 +29,4 @@ for REPO_DIR in "$BOT_DIR" "$DJSKO_DIR"; do
   git push origin "origin/$SOURCE_BRANCH:refs/heads/$BRANCH"
 done
 
-# The push also fires the webhook deploy; the deploy script's flock makes
-# whichever starts second skip, so this deploys exactly once either way.
-exec "$BOT_DIR/deploy-sarp.sh"
+echo "Pushed. The webhook deploy takes it from here."

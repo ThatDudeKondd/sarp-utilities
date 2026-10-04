@@ -61,3 +61,25 @@ reaches the deploy logic. The repo name from the (now-verified) payload is
 looked up in a fixed `DEPLOY_SCRIPTS` map rather than used to build a
 command string, so there's no injection surface via the payload itself —
 only the mapped script path is ever executed.
+
+## Promote receiver (`webhook-server.cjs`, port 9001)
+
+`jsk promote` runs inside the bots' containers, which can't touch the host's
+repos, so it asks this receiver to run the host-side promote script. It
+listens on `127.0.0.1:9001`, a separate port from the tunneled `9000`, so it
+is never reachable from the internet. Requests carrying proxy headers
+(`Cf-Ray`, `Cf-Connecting-Ip`, `X-Forwarded-For`) are refused anyway.
+
+Each request is HMAC-SHA256 signed over `timestamp.body` with
+`PROMOTE_SECRET` (separate from `WEBHOOK_SECRET`, at least 32 chars, or the
+receiver doesn't start). The secret never goes over the wire. Requests more
+than 60s old, or whose signature was already used, are rejected. The body is
+capped at 1 KB and only names a key in the fixed `PROMOTE_SCRIPTS` map, which
+is run with `execFile` (no shell). Only one promote runs at a time. The
+script only fast-forwards `main` to `testing` (it refuses a non-fast-forward
+in any repo before pushing anything), and the resulting push deploys through
+the normal webhook.
+
+`PROMOTE_SECRET` must be set in the webhook server's environment and in both
+bots' `.env`. Anyone who can read either bot's `.env`, or run `jsk` eval/shell,
+can promote.
