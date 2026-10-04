@@ -6,3 +6,6 @@ dist/
 *.tsbuildinfo
 
 /src/generated/prisma
+
+# Local test environment
+.env.test
