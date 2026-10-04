@@ -16,7 +16,11 @@ SOURCE_BRANCH="testing"
 # others half-promoted.
 for REPO_DIR in "$BOT_DIR" "$DJSKO_DIR"; do
   cd "$REPO_DIR"
-  git fetch origin "$BRANCH" "$SOURCE_BRANCH"
+  # Explicit refspecs: the server clones only track main, so a plain
+  # `git fetch origin testing` would never create origin/testing.
+  git fetch origin \
+    "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" \
+    "+refs/heads/$SOURCE_BRANCH:refs/remotes/origin/$SOURCE_BRANCH"
   if ! git merge-base --is-ancestor origin/"$BRANCH" origin/"$SOURCE_BRANCH"; then
     echo "$(basename "$REPO_DIR"): $BRANCH has commits not in $SOURCE_BRANCH, can't fast-forward. Merge $BRANCH into $SOURCE_BRANCH first."
     exit 1
