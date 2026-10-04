@@ -300,6 +300,10 @@ systemd `--user` service — not raw `node`/`npm`.
   as a fallback. It pulls both repos, rebuilds the image, runs a one-shot
   `docker run ... npm run db:update` migration container, then restarts the
   systemd service. See `DEBUG_CHEATSHEET.md` for troubleshooting commands.
+- **Promote**: work lands on `testing`; `-jsk promote` fast-forwards `main` to
+  `testing` (this repo + djsko) via the host's promote receiver
+  (`webhook-server.cjs`, `127.0.0.1:29017`), and the push deploys as above.
+  See `SECURITY.md` for how that receiver is locked down.
 
 ## 🤝 Contributing
 
