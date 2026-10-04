@@ -2,6 +2,7 @@ import { Client, SlashCommandBuilder } from "discord.js";
 import { logger } from "../utils/logger.js";
 import { CommandLoader } from "../loaders/unifiedCommandLoader.js";
 import { startSyncScheduler } from "../jobs/syncScheduler.js";
+import { startErlcCommandWatcher } from "../jobs/erlcCommandWatcher.js";
 
 export async function onReady(
   client: Client<true>,
@@ -18,4 +19,5 @@ export async function onReady(
   await CommandLoader.registerSlashCommands(client.guilds.cache.values(), slashData);
 
   startSyncScheduler(client);
+  startErlcCommandWatcher(client);
 }

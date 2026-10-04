@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "dev": "nodemon --exec tsx src/index.ts",
     "dev:test": "DOTENV_CONFIG_PATH=.env.test nodemon --exec tsx src/index.ts",
     "db:push:test": "DOTENV_CONFIG_PATH=.env.test prisma db push && prisma generate",
