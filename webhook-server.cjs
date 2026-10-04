@@ -3,7 +3,7 @@ const http = require("http");
 const crypto = require("crypto");
 const { exec, execFile } = require("child_process");
 
-const PORT = 9000;
+const PORT = Number(process.env.WEBHOOK_PORT) || 9000;
 const SECRET = process.env.WEBHOOK_SECRET;
 
 // Repo full_name -> deploy script(s) to run. Add a new project here rather than

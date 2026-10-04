@@ -18,10 +18,11 @@ export function setCooldown(
     expiresAt: Date.now() + cooldownMs,
   });
 
-  // Auto-cleanup after cooldown expires
+  // Auto-cleanup after cooldown expires. unref: a pending cleanup must never
+  // keep the process alive on its own.
   setTimeout(() => {
     cooldowns.delete(key);
-  }, cooldownMs);
+  }, cooldownMs).unref?.();
 }
 
 export function getCooldown(userId: string, commandName: string): number {
