@@ -4,29 +4,36 @@ import { prisma } from "../../database/client.js";
 import { grantToHolders } from "../../services/RoleSyncService.js";
 import { createErrorEmbed, createSuccessEmbed } from "../../utils/formatters.js";
 
-const linkOptions = [
+const pairOptions = [
   {
-    name: "role",
-    description: "Role in THIS server.",
+    name: "this_server_role",
+    description: "The role in this server.",
     type: "role" as const,
     required: true,
   },
   {
-    name: "source_server",
+    name: "other_server_id",
     description: "ID of the other server.",
     type: "string" as const,
     required: true,
   },
   {
-    name: "source_role",
+    name: "other_server_role_id",
     description: "ID of the role in the other server.",
     type: "string" as const,
     required: true,
   },
 ];
 
-// Links are two-way, so they grant roles in BOTH servers -- the invoker must
-// be an admin in both (this one via `permissions`, the other checked below).
+const DIRECTIONS = {
+  both: "Two-way (either role grants/removes the other)",
+  to_here: "One-way: other server's role → this server's role",
+  to_other: "One-way: this server's role → other server's role",
+} as const;
+type Direction = keyof typeof DIRECTIONS;
+
+// A link can only grant roles in servers the invoker administrates: this one
+// via `permissions`, the other checked below whenever the link writes there.
 export default defineCommand({
   name: "rolesync",
   description: "Keep roles in sync between this server and another.",
@@ -36,34 +43,55 @@ export default defineCommand({
   subcommands: [
     {
       name: "link",
-      description: "Link a role here with a role in another server (two-way).",
-      options: linkOptions,
+      description: "Link a role here with a role in another server.",
+      options: [
+        ...pairOptions,
+        {
+          name: "direction",
+          description: "Which way roles sync. Default: two-way.",
+          type: "string" as const,
+          required: false,
+          choices: Object.entries(DIRECTIONS).map(([value, name]) => ({ name, value })),
+        },
+      ],
       execute: async (ctx) => {
         await ctx.defer();
-        const role = ctx.getRole("role");
-        const sourceGuildId = ctx.getString("source_server")?.trim() ?? "";
-        const sourceRoleId = ctx.getString("source_role")?.trim() ?? "";
+        const role = ctx.getRole("this_server_role");
+        const sourceGuildId = ctx.getString("other_server_id")?.trim() ?? "";
+        const sourceRoleId = ctx.getString("other_server_role_id")?.trim() ?? "";
+        const direction = (ctx.getString("direction")?.trim() || "both") as Direction;
 
         const sourceGuild = ctx.client.guilds.cache.get(sourceGuildId);
         const sourceRole = sourceGuild?.roles.cache.get(sourceRoleId);
         const fail = (msg: string) =>
           ctx.editReply({ embeds: [createErrorEmbed("Can't link roles", msg)] });
 
+        if (!(direction in DIRECTIONS))
+          return void (await fail(`Direction must be one of: ${Object.keys(DIRECTIONS).join(", ")}.`));
         if (!role || !ctx.guild) return void (await fail("Pick a role in this server."));
         if (!sourceGuild || sourceGuild.id === ctx.guild.id)
           return void (await fail("The bot isn't in that server (or it's this server)."));
         if (!sourceRole) return void (await fail("That role doesn't exist in the other server."));
-        for (const r of [role, sourceRole]) {
-          if (!r.editable)
+        const grantsHere = direction !== "to_other";
+        const grantsThere = direction !== "to_here";
+        // Only roles the link actually grants need to be manageable.
+        for (const r of [grantsHere && role, grantsThere && sourceRole]) {
+          if (r && !r.editable)
             return void (await fail(`I can't manage **${r.name}** in **${r.guild.name}** — move my role above it and give me Manage Roles there.`));
         }
         const otherMember = await sourceGuild.members.fetch(ctx.user.id).catch(() => null);
-        if (!otherMember?.permissions.has(PermissionFlagsBits.Administrator))
-          return void (await fail(`You must be an administrator in **${sourceGuild.name}** too.`));
+        if (!otherMember)
+          return void (await fail(`You must be a member of **${sourceGuild.name}**.`));
+        if (grantsThere && !otherMember.permissions.has(PermissionFlagsBits.Administrator))
+          return void (await fail(`This link grants roles in **${sourceGuild.name}**, so you must be an administrator there too.`));
 
         const here = { guildId: ctx.guild.id, roleId: role.id };
         const there = { guildId: sourceGuildId, roleId: sourceRoleId };
-        for (const [from, to] of [[here, there], [there, here]]) {
+        const pairs = [
+          ...(grantsHere ? [[there, here]] : []),
+          ...(grantsThere ? [[here, there]] : []),
+        ];
+        for (const [from, to] of pairs) {
           const link = {
             sourceGuildId: from.guildId,
             sourceRoleId: from.roleId,
@@ -80,15 +108,25 @@ export default defineCommand({
         // Backfill both ways. Only adds -- nobody loses a role at link time,
         // so a mis-link can't mass-strip one.
         await Promise.all([ctx.guild.members.fetch(), sourceGuild.members.fetch()]);
-        await grantToHolders(ctx.client, sourceRole.members.keys(), ctx.guild.id, role.id);
-        await grantToHolders(ctx.client, role.members.keys(), sourceGuildId, sourceRoleId);
+        let synced = 0;
+        if (grantsHere) {
+          await grantToHolders(ctx.client, sourceRole.members.keys(), ctx.guild.id, role.id);
+          synced += sourceRole.members.size;
+        }
+        if (grantsThere) {
+          await grantToHolders(ctx.client, role.members.keys(), sourceGuildId, sourceRoleId);
+          synced += role.members.size;
+        }
 
+        const thereLabel = `**${sourceRole.name}** in **${sourceGuild.name}**`;
+        const summary = {
+          both: `${role} here and ${thereLabel} are now kept in sync both ways.`,
+          to_here: `${thereLabel} now grants ${role} here (one-way).`,
+          to_other: `${role} here now grants ${thereLabel} (one-way).`,
+        }[direction];
         await ctx.editReply({
           embeds: [
-            createSuccessEmbed(
-              "Roles linked",
-              `${role} here and **${sourceRole.name}** in **${sourceGuild.name}** are now kept in sync both ways. Synced ${role.members.size + sourceRole.members.size} existing holder(s).`,
-            ),
+            createSuccessEmbed("Roles linked", `${summary} Synced ${synced} existing holder(s).`),
           ],
         });
       },
@@ -96,13 +134,13 @@ export default defineCommand({
     {
       name: "unlink",
       description: "Remove a role link, both ways (already-granted roles are kept).",
-      options: linkOptions,
+      options: pairOptions,
       execute: async (ctx) => {
-        const role = ctx.getRole("role");
+        const role = ctx.getRole("this_server_role");
         const here = { guildId: ctx.guild!.id, roleId: role?.id ?? "" };
         const there = {
-          guildId: ctx.getString("source_server")?.trim() ?? "",
-          roleId: ctx.getString("source_role")?.trim() ?? "",
+          guildId: ctx.getString("other_server_id")?.trim() ?? "",
+          roleId: ctx.getString("other_server_role_id")?.trim() ?? "",
         };
         const { count } = await prisma.roleLink.deleteMany({
           where: {
@@ -117,7 +155,7 @@ export default defineCommand({
         await ctx.reply({
           embeds: [
             count
-              ? createSuccessEmbed("Link removed", `${role} is no longer synced from that role.`)
+              ? createSuccessEmbed("Link removed", `${role} is no longer linked to that role (either direction).`)
               : createErrorEmbed("No such link", "Nothing matched. Check `/rolesync list`."),
           ],
         });

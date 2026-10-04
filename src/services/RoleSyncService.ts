@@ -2,11 +2,10 @@ import { Client } from "discord.js";
 import { prisma } from "../database/client.js";
 import { logger } from "../utils/logger.js";
 
-// Links are stored as directed rows, and `/rolesync link` writes both
-// directions, so a pair of linked roles mirrors each other: gaining or losing
-// either one does the same to the other. Every linked role is therefore
-// equivalent to its partners -- linking one main-server role to two
-// department roles keeps all three in step.
+// Links are stored as directed rows: a source role's state is copied to its
+// target. A two-way `/rolesync link` writes both directions, so the pair
+// mirrors each other; a one-way link writes just one row, so only the source
+// drives the target (changing the target by hand doesn't touch the source).
 
 async function setRole(
   client: Client,
