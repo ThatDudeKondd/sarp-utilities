@@ -1,5 +1,6 @@
 import { Message, PermissionResolvable } from "discord.js";
 import { logger } from "../utils/logger.js";
+import { asEmbed } from "../utils/formatters.js";
 
 export function requirePermissions(...permissions: PermissionResolvable[]) {
   return async (message: Message) => {
@@ -14,7 +15,9 @@ export function requirePermissions(...permissions: PermissionResolvable[]) {
       logger.warn(
         `User ${message.author.tag} attempted to use restricted command`,
       );
-      await message.reply("❌ You do not have permission to use this command.");
+      await message.reply(
+        asEmbed({ content: "❌ You do not have permission to use this command." }),
+      );
     }
 
     return hasPermissions;

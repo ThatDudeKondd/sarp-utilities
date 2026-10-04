@@ -13,6 +13,24 @@ export function baseEmbed(color: number): EmbedBuilder {
     .setFooter({ text: CONSTANTS.EMBED_FOOTER_TEXT });
 }
 
+/**
+ * Every bot reply is an embed: turns a plain-text payload into one (red when it
+ * starts with ❌). Payloads that already carry embeds pass through untouched.
+ */
+export function asEmbed<T extends { content?: string; embeds?: unknown[] }>(
+  payload: T,
+): T {
+  if (!payload.content || payload.embeds?.length) return payload;
+  const color = payload.content.startsWith("❌")
+    ? CONSTANTS.EMBED_ERROR_COLOR
+    : CONSTANTS.EMBED_COLOR;
+  return {
+    ...payload,
+    content: "",
+    embeds: [baseEmbed(color).setDescription(payload.content)],
+  };
+}
+
 export function createSuccessEmbed(
   title: string,
   description: string,

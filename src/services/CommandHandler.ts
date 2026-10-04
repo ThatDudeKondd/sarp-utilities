@@ -8,6 +8,7 @@ import {
 import { GuildConfigService } from "./GuildConfigService.js";
 import { UnifiedCommand, SubCommand } from "../types/UnifiedCommand.js";
 import { CommandContext } from "../utils/commandContext.js";
+import { asEmbed } from "../utils/formatters.js";
 
 export class CommandHandler {
   /**
@@ -102,7 +103,7 @@ export class CommandHandler {
     if (!command) {
       logger.warn(`Slash command not found: ${interaction.commandName}`);
       await interaction
-        .reply({ content: "❌ This command is not available", ephemeral: true })
+        .reply(asEmbed({ content: "❌ This command is not available", ephemeral: true }))
         .catch(() => {});
       return;
     }
@@ -117,10 +118,9 @@ export class CommandHandler {
       );
 
       if (!subcommand) {
-        await interaction.reply({
-          content: "Unknown subcommand.",
-          ephemeral: true,
-        });
+        await interaction.reply(
+          asEmbed({ content: "❌ Unknown subcommand.", ephemeral: true }),
+        );
         return;
       }
 
@@ -161,9 +161,9 @@ export class CommandHandler {
 
     const reject = async (content: string) => {
       if (isMessage) {
-        await source.reply(content).catch(() => {});
+        await source.reply(asEmbed({ content })).catch(() => {});
       } else {
-        await source.reply({ content, ephemeral: true }).catch(() => {});
+        await source.reply(asEmbed({ content, ephemeral: true })).catch(() => {});
       }
     };
 

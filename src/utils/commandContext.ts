@@ -12,6 +12,7 @@ import {
   MessageMentionOptions,
 } from "discord.js";
 import { CommandOption } from "../types/UnifiedCommand.js";
+import { asEmbed } from "./formatters.js";
 
 export interface ReplyOptions {
   content?: string;
@@ -114,7 +115,7 @@ export class CommandContext {
   }
 
   async reply(content: string | ReplyOptions): Promise<unknown> {
-    const payload = typeof content === "string" ? { content } : content;
+    const payload = asEmbed(typeof content === "string" ? { content } : content);
 
     if (this.isSlash) {
       const interaction = this._interaction!;
@@ -136,7 +137,8 @@ export class CommandContext {
     return this.lastReply;
   }
 
-  async editReply(content: ReplyOptions): Promise<Message> {
+  async editReply(options: ReplyOptions): Promise<Message> {
+    const content = asEmbed(options);
     if (this.isSlash) {
       const interaction = this._interaction!;
 

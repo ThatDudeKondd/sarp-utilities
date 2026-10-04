@@ -15,6 +15,7 @@ import { prisma } from "../../database/client.js";
 import type { GuildConfig } from "../../generated/prisma/client.js";
 import { config } from "../../config/config.js";
 import { logger } from "../../utils/logger.js";
+import { asEmbed } from "../../utils/formatters.js";
 import { SubCommand } from "../../types/UnifiedCommand.js";
 import { GuildConfigService } from "../../services/GuildConfigService.js";
 import { logCommandError } from "../../middleware/commandLogger.js";
@@ -221,11 +222,13 @@ export default {
           "collect",
           async (buttonInteraction: ButtonInteraction) => {
             if (buttonInteraction.user.id !== ctx.user.id) {
-              await buttonInteraction.reply({
-                content:
-                  "Only the user who initiated the configuration command can interact with these buttons.",
-                flags: MessageFlags.Ephemeral,
-              });
+              await buttonInteraction.reply(
+                asEmbed({
+                  content:
+                    "❌ Only the user who initiated the configuration command can interact with these buttons.",
+                  flags: MessageFlags.Ephemeral as const,
+                }),
+              );
               return;
             }
 
@@ -239,10 +242,9 @@ export default {
             );
 
             if (!category) {
-              await buttonInteraction.reply({
-                content: "Invalid category.",
-                flags: MessageFlags.Ephemeral,
-              });
+              await buttonInteraction.reply(
+                asEmbed({ content: "❌ Invalid category.", flags: MessageFlags.Ephemeral as const }),
+              );
               return;
             }
 

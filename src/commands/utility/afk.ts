@@ -1,6 +1,6 @@
 import { defineCommand } from "../../utils/defineCommand.js";
 import { setAfk } from "../../services/AfkService.js";
-import { truncateString } from "../../utils/formatters.js";
+import { createSuccessEmbed, truncateString } from "../../utils/formatters.js";
 
 export default defineCommand({
   name: "afk",
@@ -18,10 +18,10 @@ export default defineCommand({
 
   execute: async (ctx) => {
     const message = truncateString(ctx.getString("message")?.trim() || "AFK", 200);
-    setAfk(ctx.user.id, message);
+    await setAfk(ctx.user.id, message, ctx.member);
 
     await ctx.reply({
-      content: `💤 You are now AFK: ${message}`,
+      embeds: [createSuccessEmbed("AFK", `💤 You are now AFK: ${message}`)],
       allowedMentions: { parse: [] },
     });
   },
