@@ -1,0 +1,6 @@
+{
+  // Type-checks the tests too; tsconfig.json excludes them so they never ship in dist.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "exclude": ["node_modules", "dist"]
+}

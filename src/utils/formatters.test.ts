@@ -14,7 +14,7 @@ import {
 
 describe("asEmbed", () => {
   test("turns plain content into a blurple embed and clears the content", () => {
-    const out = asEmbed({ content: "hello" });
+    const out: any = asEmbed({ content: "hello" });
     assert.equal(out.content, "");
     assert.equal(out.embeds!.length, 1);
     const data = (out.embeds![0] as any).data;
@@ -23,7 +23,7 @@ describe("asEmbed", () => {
   });
 
   test("uses the error colour for ❌ messages", () => {
-    const data = (asEmbed({ content: "❌ nope" }).embeds![0] as any).data;
+    const data = (asEmbed({ content: "❌ nope" }) as any).embeds[0].data;
     assert.equal(data.color, CONSTANTS.EMBED_ERROR_COLOR);
   });
 
