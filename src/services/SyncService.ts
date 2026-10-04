@@ -24,15 +24,28 @@ export async function syncGuildMembers(
   let synced = 0;
   let failed = 0;
 
+  // One query up front for everyone's existing guild list, so adding this
+  // guild to it doesn't cost an extra round trip per member.
+  const existing = await prisma.user.findMany({
+    where: { userId: { in: humanMembers.map((m) => m.id) } },
+    select: { userId: true, guilds: true },
+  });
+  const guildsByUser = new Map(existing.map((u) => [u.userId, u.guilds]));
+
   for (const member of humanMembers) {
     try {
       const roleIds = member.roles.cache
         .filter((role) => role.id !== guild.id) // drop @everyone
         .map((role) => role.id);
 
+      const knownGuilds = guildsByUser.get(member.id) ?? [];
+      const guilds = knownGuilds.includes(guild.id)
+        ? knownGuilds
+        : [...knownGuilds, guild.id];
+
       await prisma.user.upsert({
         where: { userId: member.id },
-        update: { roles: roleIds, username: member.user.username },
+        update: { roles: roleIds, username: member.user.username, guilds },
         create: {
           userId: member.id,
           roles: roleIds,

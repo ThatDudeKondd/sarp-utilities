@@ -18,7 +18,20 @@ export const CLIENT_ID = process.env.CLIENT_ID || "";
 export const BOT_TOKEN = process.env.BOT_TOKEN || "";
 export const ERLC_API_KEY = process.env.ERLC_API_KEY || "";
 export const SUPER_ADMIN_ID = process.env.SUPER_ADMIN_ID || "";
-export const CAN_USE_JSK_IDS = process.env.CAN_USE_JSK || "";
+/** Role pinged alongside command-error logs. Unset = no ping. */
+export const ERROR_ALERT_ROLE_ID = process.env.ERROR_ALERT_ROLE_ID || "";
+
+function parseIdList(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+/** Discord user IDs allowed to use the djsko (`-jsk`) owner console. */
+export const JSK_OWNER_IDS = parseIdList(process.env.JSK_OWNERS);
+/** Subset of owners allowed to run `-jsk sh` on the host. */
+export const JSK_SHELL_OWNER_IDS = parseIdList(process.env.JSK_SHELL_OWNERS);
 
 /**
  * Shape of the ERLC `/Server` endpoint response, based on a real sample response.

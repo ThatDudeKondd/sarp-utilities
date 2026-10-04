@@ -11,7 +11,7 @@ export const BOT_CONFIG = {
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 } as const;
 
-const superAdminId = "726507399640252416";
+const superAdminId = process.env.SUPER_ADMIN_ID || "";
 
 const DEBUG = process.env.DEBUG;
 const erlcApiKey = process.env.ERLC_API_KEY || "";

@@ -9,6 +9,7 @@ import {
   Client,
   MessageFlags,
   UserManager,
+  MessageMentionOptions,
 } from "discord.js";
 import { CommandOption } from "../types/UnifiedCommand.js";
 
@@ -18,6 +19,7 @@ export interface ReplyOptions {
   components?: any[];
   files?: any[];
   flags?: number | bigint;
+  allowedMentions?: MessageMentionOptions;
 }
 
 type ResolvedValue = string | number | boolean | User | TextBasedChannel | Role;

@@ -17,21 +17,9 @@ export default defineCommand({
     const guild = ctx.guild;
     if (!guild) return;
 
+    // getConfig creates a default row when none exists, so this never
+    // comes back empty -- an unconfigured guild just has no roles to match.
     const guildConfig = await GuildConfigService.getConfig(guild.id);
-    if (!guildConfig) {
-      await ctx.editReply({
-        embeds: [
-          [
-            new EmbedBuilder()
-              .setTitle("❌ Configuration not found")
-              .setDescription("Please configure the server first.")
-              .setColor(CONSTANTS.EMBED_ERROR_COLOR)
-              .setTimestamp(),
-          ],
-        ],
-      });
-      return;
-    }
 
     const canRunRoles = [
       ...(guildConfig.directiveRoles || []),
@@ -65,7 +53,7 @@ export default defineCommand({
         .setColor(CONSTANTS.EMBED_COLOR)
         .setTimestamp();
 
-    await ctx.reply({ embeds: [progressEmbed(0, 0, 0)] });
+    await ctx.editReply({ embeds: [progressEmbed(0, 0, 0)] });
 
     let lastUpdate = 0;
     const { synced, failed, total } = await syncGuildMembers(

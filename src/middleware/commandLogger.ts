@@ -1,6 +1,6 @@
 import { EmbedBuilder } from "discord.js";
 import { CommandContext } from "../utils/commandContext.js";
-import { CONSTANTS } from "../config/constants.js";
+import { CONSTANTS, ERROR_ALERT_ROLE_ID } from "../config/constants.js";
 import { sendToLogsChannel } from "../utils/logChannel.js";
 import { truncateString } from "../utils/formatters.js";
 
@@ -73,5 +73,9 @@ export async function logCommandError(
     .setColor(CONSTANTS.EMBED_ERROR_COLOR)
     .setTimestamp();
 
-  await sendToLogsChannel(guild, embed, "<@&1539455699913019483>");
+  await sendToLogsChannel(
+    guild,
+    embed,
+    ERROR_ALERT_ROLE_ID ? `<@&${ERROR_ALERT_ROLE_ID}>` : undefined,
+  );
 }

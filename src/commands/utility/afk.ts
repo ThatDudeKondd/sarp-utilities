@@ -1,4 +1,6 @@
 import { defineCommand } from "../../utils/defineCommand.js";
+import { setAfk } from "../../services/AfkService.js";
+import { truncateString } from "../../utils/formatters.js";
 
 export default defineCommand({
   name: "afk",
@@ -15,6 +17,12 @@ export default defineCommand({
   ],
 
   execute: async (ctx) => {
-    const message = ctx.getString("message");
+    const message = truncateString(ctx.getString("message")?.trim() || "AFK", 200);
+    setAfk(ctx.user.id, message);
+
+    await ctx.reply({
+      content: `💤 You are now AFK: ${message}`,
+      allowedMentions: { parse: [] },
+    });
   },
 });

@@ -70,7 +70,9 @@ model Infraction {
 model User {
   id          String       @id @default(cuid())
   userId      String       @unique
-  username    String       @unique
+  // Not unique: a rename can briefly leave two rows holding the same name
+  // until the other member is next synced.
+  username    String
   roles       String[]     @default([])
   guilds      String[]     @default([])
   infractions Infraction[]
@@ -78,4 +80,19 @@ model User {
   updatedAt   DateTime     @updatedAt
 
   @@map("users")
+}
+
+// Cross-server role sync: holding sourceRoleId in sourceGuildId grants
+// targetRoleId in targetGuildId. Two links (one each way) = bidirectional.
+model RoleLink {
+  id            String @id @default(cuid())
+  sourceGuildId String
+  sourceRoleId  String
+  targetGuildId String
+  targetRoleId  String
+
+  @@unique([sourceGuildId, sourceRoleId, targetGuildId, targetRoleId])
+  @@index([sourceGuildId])
+  @@index([targetGuildId])
+  @@map("role_links")
 }

@@ -29,8 +29,12 @@ Discord-native, no separate auth system:
 
 ## `djsko`/Jishaku owner console
 
-`index.ts` wires up `djsko`'s `Jishaku` with a hardcoded `owners` (and a
-narrower `shellOwners`) list of Discord user IDs. Anyone on that list can:
+`index.ts` wires up `djsko`'s `Jishaku` with an `owners` list (`JSK_OWNERS`)
+and a narrower `shellOwners` list (`JSK_SHELL_OWNERS`) of Discord user IDs,
+both comma-separated in `.env`. If either is unset the console is closed to
+everyone rather than falling back to djsko's default of the application
+owner. Security mode is on, so jsk output (including `-jsk update`'s deploy
+log) has env secrets redacted. Anyone on the owners list can:
 
 - run arbitrary JavaScript in the bot process (`jsk js`/`jsk cjs`/`jsk mjs`)
   — full read access to `process.env`, the Prisma client, and anything else
@@ -41,7 +45,7 @@ narrower `shellOwners`) list of Discord user IDs. Anyone on that list can:
   (`updateCommand`/`restartCommand` run `deploy-sarp.sh` and
   `systemctl --user restart sarp-utilities.service` directly).
 
-**Treat the owner list in `index.ts` like a list of people with root on the
+**Treat `JSK_OWNERS` like a list of people with root on the
 production host — because they effectively have it.** See
 `djsko/SECURITY.md` for what djsko's security mode does and doesn't protect
 against (output redaction, not access control).

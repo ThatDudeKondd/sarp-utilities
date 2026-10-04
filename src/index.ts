@@ -4,7 +4,11 @@ import { resolve } from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { BOT_CONFIG } from "./config/config.js";
-import { BOT_TOKEN } from "./config/constants.js";
+import {
+  BOT_TOKEN,
+  JSK_OWNER_IDS,
+  JSK_SHELL_OWNER_IDS,
+} from "./config/constants.js";
 import { validateEnv } from "./utils/envValidator.js";
 import { logger } from "./utils/logger.js";
 import { connectDatabase, disconnectDatabase } from "./database/client.js";
@@ -12,6 +16,7 @@ import { onReady } from "./events/ready.js";
 import { onMessageCreate } from "./events/messageCreate.js";
 import { onInteractionCreate } from "./events/interactionCreate.js";
 import { CommandLoader } from "./loaders/unifiedCommandLoader.js";
+import { syncMemberRoles } from "./services/RoleSyncService.js";
 import { setCommandRegistry } from "./loaders/commandRegistry.js";
 import { UnifiedCommand } from "./types/UnifiedCommand.js";
 import { Jishaku } from "djsko";
@@ -31,11 +36,24 @@ let commands = new Map<string, UnifiedCommand>();
 let aliases = new Map<string, UnifiedCommand>();
 let slashData: SlashCommandBuilder[] = [];
 
+// djsko treats an empty owner list as "fall back to the application owner",
+// so a missing env var would silently widen access. A placeholder ID that
+// matches no real user keeps the console closed instead.
+const NO_OWNERS = ["0"];
+if (!JSK_OWNER_IDS.length || !JSK_SHELL_OWNER_IDS.length) {
+  logger.warn(
+    "JSK_OWNERS / JSK_SHELL_OWNERS not set -- the jsk console is disabled for anyone not listed.",
+  );
+}
+
 const jsk = new Jishaku(client, {
-  prefix: "-", // Root command becomes `.jsk`. Default: '.'
-  owners: ["726507399640252416", "1383717448804470817", "1092489655888379915"], // Optional; defaults to the application owner/team.
-  shellOwners: ["726507399640252416"],
+  prefix: "-", // Root command becomes `-jsk`. Default: '.'
+  owners: JSK_OWNER_IDS.length ? JSK_OWNER_IDS : NO_OWNERS,
+  shellOwners: JSK_SHELL_OWNER_IDS.length ? JSK_SHELL_OWNER_IDS : NO_OWNERS,
   encoding: "UTF-8", // Use 'Shift_JIS' for Japanese Windows shell output.
+  // Redacts env secrets from everything jsk sends -- including `-jsk update`'s
+  // deploy output, which echoes docker/npm logs into the channel.
+  security: true,
   updateCommand: "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
   restartCommand: "systemctl --user restart sarp-utilities.service",
 });
@@ -76,6 +94,28 @@ client.on("messageCreate", (message) => jsk.onMessageCreated(message));
 client.on("interactionCreate", (interaction) =>
   onInteractionCreate(interaction as any, commands),
 );
+
+// Cross-server role sync (see services/RoleSyncService.ts)
+const logRoleSyncError = (error: unknown) =>
+  logger.error("Role sync error:", error);
+
+client.on("guildMemberUpdate", (oldMember, newMember) => {
+  const changed = newMember.roles.cache
+    .filter((r) => !oldMember.roles.cache.has(r.id))
+    .concat(oldMember.roles.cache.filter((r) => !newMember.roles.cache.has(r.id)));
+  if (!changed.size) return;
+  syncMemberRoles(client, newMember.id, newMember.guild.id, [...changed.keys()]).catch(
+    logRoleSyncError,
+  );
+});
+
+client.on("guildMemberAdd", (member) => {
+  syncMemberRoles(client, member.id, member.guild.id).catch(logRoleSyncError);
+});
+
+client.on("guildMemberRemove", (member) => {
+  syncMemberRoles(client, member.id, member.guild.id).catch(logRoleSyncError);
+});
 
 // Error handling
 client.on("error", (error) => {

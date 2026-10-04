@@ -11,9 +11,16 @@ import { MessageFlags } from "discord.js";
 import { GuildConfigService } from "../../services/GuildConfigService.js";
 import { logCommandError } from "../../middleware/commandLogger.js";
 
+/** Friendly messages for the ERLC `/command` endpoint's documented error codes. */
+const ERLC_COMMAND_ERRORS: Record<number, string> = {
+  400: "Invalid command provided.",
+  422: "The in-game server is currently offline.",
+  500: "An error occurred while communicating with the in-game server.",
+};
+
 export default {
   name: "run",
-  description: "Setup the server's configuration",
+  description: "Run a command in the in-game ER:LC server.",
   options: [
     {
       name: "command",
@@ -72,11 +79,12 @@ export default {
       const response = await fetch(`${config.erlcApiBaseUrl}/command`, options);
       if (!response.ok) {
         const text = await response.text().catch(() => null);
+        const reason = ERLC_COMMAND_ERRORS[response.status];
         throw new Error(
-          `ERLC API returned ${response.status}${text ? ` - ${text}` : ""}`,
+          reason ??
+            `ERLC API returned ${response.status}${text ? ` - ${text}` : ""}`,
         );
       }
-      const resultText = await response.text().catch(() => null);
 
       const statsResponse = await fetch(
         `${config.erlcApiBaseUrl}`,
@@ -85,27 +93,15 @@ export default {
       if (!statsResponse.ok) {
         const text = await statsResponse.text().catch(() => null);
         throw new Error(
-          `ERLC API Stats returned ${response.status}${text ? ` - ${text}` : ""}`,
+          `ERLC API Stats returned ${statsResponse.status}${text ? ` - ${text}` : ""}`,
         );
       }
       const serverData = (await statsResponse.json()) as ErlcServerInfo;
       const serverName = serverData.Name || "ERLC Server";
 
-      let output = null;
-
-      if (response.status === 200) {
-        output = " Sent successfully";
-      } else if (response.status === 400) {
-        output = "Invalid command provided";
-      } else if (response.status === 422) {
-        output = "The server is currently offline";
-      } else if (response.status === 500) {
-        output = "An error occurred while communicating with the server";
-      }
-
       const embed = createSuccessEmbed(
         serverName,
-        `> **Command:** \`${truncateString(command)}\`\n > **Executed By:** <@${ctx.user.id}>\n > **Output:** ${truncateString(output || resultText || "No output", 4096)}`,
+        `> **Command:** \`${truncateString(command)}\`\n > **Executed By:** <@${ctx.user.id}>\n > **Output:** Sent successfully`,
       );
       await ctx.editReply({ content: "", embeds: [embed], components: [] });
     } catch (error) {

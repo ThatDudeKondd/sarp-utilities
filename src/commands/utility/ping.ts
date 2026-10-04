@@ -13,6 +13,8 @@ export default defineCommand({
     const latency = Date.now() - start;
     const wsLatency = Math.round(ctx.client.ws.ping);
 
-    await ctx.reply(`🏓 Pong! Latency: ${latency}ms | API: ${wsLatency}ms`);
+    await ctx.editReply({
+      content: `🏓 Pong! Latency: ${latency}ms | API: ${wsLatency}ms`,
+    });
   },
 });
