@@ -16,7 +16,11 @@ import { onReady } from "./events/ready.js";
 import { onMessageCreate } from "./events/messageCreate.js";
 import { onInteractionCreate } from "./events/interactionCreate.js";
 import { CommandLoader } from "./loaders/unifiedCommandLoader.js";
-import { syncMemberRoles } from "./services/RoleSyncService.js";
+import {
+  onMemberJoined,
+  onMemberLeft,
+  onRoleChanged,
+} from "./services/RoleSyncService.js";
 import { setCommandRegistry } from "./loaders/commandRegistry.js";
 import { UnifiedCommand } from "./types/UnifiedCommand.js";
 import { Jishaku } from "djsko";
@@ -105,21 +109,25 @@ const logRoleSyncError = (error: unknown) =>
   logger.error("Role sync error:", error);
 
 client.on("guildMemberUpdate", (oldMember, newMember) => {
-  const changed = newMember.roles.cache
-    .filter((r) => !oldMember.roles.cache.has(r.id))
-    .concat(oldMember.roles.cache.filter((r) => !newMember.roles.cache.has(r.id)));
-  if (!changed.size) return;
-  syncMemberRoles(client, newMember.id, newMember.guild.id, [...changed.keys()]).catch(
-    logRoleSyncError,
-  );
+  const { id, guild } = newMember;
+  for (const roleId of newMember.roles.cache.keys()) {
+    if (!oldMember.roles.cache.has(roleId)) {
+      onRoleChanged(client, id, guild.id, roleId, true).catch(logRoleSyncError);
+    }
+  }
+  for (const roleId of oldMember.roles.cache.keys()) {
+    if (!newMember.roles.cache.has(roleId)) {
+      onRoleChanged(client, id, guild.id, roleId, false).catch(logRoleSyncError);
+    }
+  }
 });
 
 client.on("guildMemberAdd", (member) => {
-  syncMemberRoles(client, member.id, member.guild.id).catch(logRoleSyncError);
+  onMemberJoined(client, member.id, member.guild.id).catch(logRoleSyncError);
 });
 
 client.on("guildMemberRemove", (member) => {
-  syncMemberRoles(client, member.id, member.guild.id).catch(logRoleSyncError);
+  onMemberLeft(client, member.id, member.guild.id).catch(logRoleSyncError);
 });
 
 // Error handling
