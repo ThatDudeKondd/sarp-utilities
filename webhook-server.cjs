@@ -109,7 +109,8 @@ server.listen(PORT, "127.0.0.1", () => {
 // internet, so anything on it is public. PROMOTE_PORT is loopback-only and
 // reachable solely by local processes (the bots run with --network host).
 // ---------------------------------------------------------------------------
-const PROMOTE_PORT = 9001;
+// Below Linux's ephemeral range (32768+) so outgoing connections never take it.
+const PROMOTE_PORT = Number(process.env.PROMOTE_PORT) || 29017;
 const PROMOTE_SECRET = process.env.PROMOTE_SECRET ?? "";
 const PROMOTE_MAX_SKEW_MS = 60_000;
 const PROMOTE_MAX_BODY = 1024;
@@ -210,6 +211,12 @@ const promoteServer = http.createServer((req, res) => {
       promoteReply(res, 200, output || "Promoted.");
     });
   });
+});
+
+// A busy port must never crash the process: that would take the GitHub
+// deploy webhook on PORT down with it.
+promoteServer.on("error", (err) => {
+  console.error(`Promote receiver disabled: ${err.message}`);
 });
 
 if (PROMOTE_SECRET.length >= 32) {

@@ -62,11 +62,11 @@ looked up in a fixed `DEPLOY_SCRIPTS` map rather than used to build a
 command string, so there's no injection surface via the payload itself —
 only the mapped script path is ever executed.
 
-## Promote receiver (`webhook-server.cjs`, port 9001)
+## Promote receiver (`webhook-server.cjs`, port 29017)
 
 `jsk promote` runs inside the bots' containers, which can't touch the host's
 repos, so it asks this receiver to run the host-side promote script. It
-listens on `127.0.0.1:9001`, a separate port from the tunneled `9000`, so it
+listens on `127.0.0.1:29017` (`PROMOTE_PORT`; set `PROMOTE_URL` in the bots to match if changed), a separate port from the tunneled `9000`, so it
 is never reachable from the internet. Requests carrying proxy headers
 (`Cf-Ray`, `Cf-Connecting-Ip`, `X-Forwarded-For`) are refused anyway.
 
