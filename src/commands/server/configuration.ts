@@ -345,8 +345,9 @@ export default {
                 `Configuration updated for guild ${guildId} by ${ctx.user.tag}`,
               );
 
-              // Restart the 60 second button timer
-              await waitForButton();
+              // Restart the 60 second button timer. Never start another
+              // collector here: each extra one would handle every later click again.
+              buttonCollector.resetTimer();
             } catch {
               await selectMessage.edit({
                 embeds: [
@@ -364,7 +365,7 @@ export default {
                 components: editButtons,
               });
 
-              await waitForButton();
+              buttonCollector.resetTimer();
             }
           },
         );
