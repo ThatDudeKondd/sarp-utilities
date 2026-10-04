@@ -3,12 +3,16 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   PermissionsBitField,
-  ComponentType,
   MessageFlags,
   RoleSelectMenuBuilder,
   ChannelSelectMenuBuilder,
   ChannelType,
-  ButtonInteraction,
+  ButtonStyle,
+  TextInputBuilder,
+  TextInputStyle,
+  ModalBuilder,
+  type Message,
+  type MessageComponentInteraction,
 } from "discord.js";
 import { CONSTANTS } from "../../config/constants.js";
 import { prisma } from "../../database/client.js";
@@ -28,7 +32,8 @@ type RoleCategoryKey =
   | "administratorRoles"
   | "moderatorRoles";
 
-type ChannelCategoryKey = "infractionChannel" | "logsChannel" | "erlcLogChannel";
+type ChannelCategoryKey =
+  "infractionChannel" | "logsChannel" | "erlcLogChannel";
 
 type ConfigCategoryKey = RoleCategoryKey | ChannelCategoryKey;
 
@@ -107,74 +112,151 @@ const CONFIG_CATEGORIES: ConfigCategory[] = [
   },
 ];
 
-function createConfigEmbed(guildConfig: GuildConfig | null) {
+type Page = "roles" | "channels" | "misc";
+
+const PAGES: Record<Page, { title: string; description: string }> = {
+  roles: { title: "Roles", description: "Who counts as staff at each level." },
+  channels: { title: "Channels", description: "Where the bot posts logs." },
+  misc: { title: "Misc", description: "Other settings." },
+};
+
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+const button = (
+  id: string,
+  label: string,
+  style = ButtonStyle.Secondary,
+  disabled = false,
+) =>
+  new ButtonBuilder()
+    .setCustomId(id)
+    .setLabel(label)
+    .setStyle(style)
+    .setDisabled(disabled);
+
+/** Bottom row on every view: page tabs (current one disabled) + Cancel. */
+function navRow(current: Page | null) {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    ...(Object.keys(PAGES) as Page[]).map((page) =>
+      button(
+        `cfg_page_${page}`,
+        PAGES[page].title,
+        ButtonStyle.Primary,
+        page === current,
+      ),
+    ),
+    button("cfg_cancel", "Cancel", ButtonStyle.Danger),
+  );
+}
+
+/** Splits buttons into rows of 5 (Discord's per-row limit). */
+function rowsOf(buttons: ButtonBuilder[]) {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        buttons.slice(i, i + 5),
+      ),
+    );
+  }
+  return rows;
+}
+
+function formatValue(
+  category: ConfigCategory,
+  guildConfig: GuildConfig,
+): string {
+  if (category.type === "role") {
+    const roles = guildConfig[category.key];
+    return roles.length
+      ? roles.map((id) => `<@&${id}>`).join(", ")
+      : "No roles assigned";
+  }
+  const channelId = guildConfig[category.key];
+  return channelId ? `<#${channelId}>` : "Not set";
+}
+
+function pageView(page: Page, guildConfig: GuildConfig) {
   const embed = new EmbedBuilder()
-    .setTitle("Server Configuration")
-    .setDescription("Current configuration for this server")
+    .setTitle(`Server Configuration — ${PAGES[page].title}`)
+    .setDescription(PAGES[page].description)
     .setColor(CONSTANTS.EMBED_COLOR)
     .setTimestamp();
 
-  if (!guildConfig) {
+  let editButtons: ButtonBuilder[];
+  if (page === "misc") {
     embed.addFields({
-      name: "Configuration",
-      value: "No configuration has been created yet.",
+      name: "Command Prefix",
+      value: `\`${guildConfig.prefix}\``,
     });
-
-    return embed;
+    editButtons = [button("cfg_edit_prefix", "Edit Command Prefix")];
+  } else {
+    const categories = CONFIG_CATEGORIES.filter(
+      (c) => c.type === (page === "roles" ? "role" : "channel"),
+    );
+    embed.addFields(
+      categories.map((c) => ({
+        name: c.title,
+        value: formatValue(c, guildConfig),
+      })),
+    );
+    editButtons = categories.map((c) =>
+      button(`cfg_edit_${c.key}`, `Edit ${c.title}`),
+    );
   }
 
-  for (const category of CONFIG_CATEGORIES) {
-    if (category.type === "role") {
-      const roles = guildConfig[category.key];
-      const rolesDisplay =
-        Array.isArray(roles) && roles.length > 0
-          ? roles.map((id) => `<@&${id}>`).join(", ")
-          : "No roles assigned";
-
-      embed.addFields({
-        name: category.title,
-        value: rolesDisplay,
-        inline: false,
-      });
-    } else {
-      const channelId = guildConfig[category.key];
-      embed.addFields({
-        name: category.title,
-        value: channelId ? `<#${channelId}>` : "Not set",
-        inline: false,
-      });
-    }
-  }
-
-  return embed;
+  return {
+    embeds: [embed],
+    components: [...rowsOf(editButtons), navRow(page)],
+  };
 }
 
-function createEditButtons() {
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-  let currentRow = new ActionRowBuilder<ButtonBuilder>();
-  let buttonCount = 0;
+function selectView(category: ConfigCategory, guildConfig: GuildConfig) {
+  const isChannel = category.type === "channel";
+  const embed = new EmbedBuilder()
+    .setTitle(`Edit ${category.title}`)
+    .setDescription(category.description)
+    .addFields(
+      { name: "Current", value: formatValue(category, guildConfig) },
+      {
+        name: "Instructions",
+        value: isChannel
+          ? "Choose a channel below. Submit without selecting to clear it."
+          : "Choose one or more roles below. Submit without selecting to clear this category.",
+      },
+    )
+    .setColor(CONSTANTS.EMBED_COLOR)
+    .setTimestamp();
 
-  for (const category of CONFIG_CATEGORIES) {
-    if (buttonCount === 5) {
-      rows.push(currentRow);
-      currentRow = new ActionRowBuilder<ButtonBuilder>();
-      buttonCount = 0;
-    }
+  const select = isChannel
+    ? new ChannelSelectMenuBuilder()
+        .setCustomId(`cfg_select_${category.key}`)
+        .setPlaceholder(`Select a channel for ${category.title}`)
+        .setChannelTypes(category.channelTypes ?? [ChannelType.GuildText])
+        .setMinValues(0)
+        .setMaxValues(1)
+    : new RoleSelectMenuBuilder()
+        .setCustomId(`cfg_select_${category.key}`)
+        .setPlaceholder(`Select roles for ${category.title}`)
+        .setMinValues(0)
+        .setMaxValues(25);
 
-    const button = new ButtonBuilder()
-      .setCustomId(`config_edit_${category.key}`)
-      .setLabel(`Edit ${category.title}`)
-      .setStyle(1); // Blue button
+  return {
+    embeds: [embed],
+    components: [
+      new ActionRowBuilder<
+        ChannelSelectMenuBuilder | RoleSelectMenuBuilder
+      >().addComponents(select),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        button("cfg_back", "Back"),
+        button("cfg_cancel", "Cancel", ButtonStyle.Danger),
+      ),
+    ],
+  };
+}
 
-    currentRow.addComponents(button);
-    buttonCount++;
-  }
-
-  if (currentRow.components.length > 0) {
-    rows.push(currentRow);
-  }
-
-  return rows;
+function pageOf(category: ConfigCategory): Page {
+  return category.type === "role" ? "roles" : "channels";
 }
 
 export default {
@@ -188,8 +270,7 @@ export default {
       throw new Error("This command can only be used in a server.");
     }
 
-    const guild = ctx.guild;
-    const guildId = guild.id;
+    const guildId = ctx.guild.id;
 
     const isSuperAdmin = ctx.user.id === config.superAdminId;
     const isAdmin = ctx.member?.permissions?.has(
@@ -211,201 +292,148 @@ export default {
         );
       }
 
-      const configEmbed = createConfigEmbed(guildConfig);
-      const editButtons = createEditButtons();
+      let page: Page = "roles";
+      const message: Message = await ctx.editReply(pageView(page, guildConfig));
 
-      const message = await ctx.editReply({
-        embeds: [configEmbed],
-        components: editButtons,
+      // One collector for the whole panel; every view is an in-place edit of
+      // this message, so Back/Cancel never leave stray messages behind.
+      const collector = message.createMessageComponentCollector({
+        idle: IDLE_TIMEOUT_MS,
       });
 
-      const waitForButton = async (): Promise<void> => {
-        const buttonCollector = message.createMessageComponentCollector({
-          componentType: ComponentType.Button,
-          time: 60000,
-        });
+      collector.on("collect", async (i: MessageComponentInteraction) => {
+        try {
+          if (i.user.id !== ctx.user.id) {
+            await i.reply(
+              asEmbed({
+                content:
+                  "❌ Only the user who initiated the configuration command can use this panel.",
+                flags: MessageFlags.Ephemeral as const,
+              }),
+            );
+            return;
+          }
 
-        buttonCollector.on(
-          "collect",
-          async (buttonInteraction: ButtonInteraction) => {
-            if (buttonInteraction.user.id !== ctx.user.id) {
-              await buttonInteraction.reply(
+          const id = i.customId;
+
+          if (id === "cfg_cancel") {
+            collector.stop("cancelled");
+            await i.deferUpdate();
+            await message.delete().catch(() => {});
+            return;
+          }
+
+          if (id === "cfg_back") {
+            await i.update(pageView(page, guildConfig!));
+            return;
+          }
+
+          if (id.startsWith("cfg_page_")) {
+            page = id.replace("cfg_page_", "") as Page;
+            await i.update(pageView(page, guildConfig!));
+            return;
+          }
+
+          if (id === "cfg_edit_prefix") {
+            await i.showModal(
+              new ModalBuilder()
+                .setCustomId("cfg_prefix_modal")
+                .setTitle("Command Prefix")
+                .addComponents(
+                  new ActionRowBuilder<TextInputBuilder>().addComponents(
+                    new TextInputBuilder()
+                      .setCustomId("prefix")
+                      .setLabel("New prefix (1-5 characters, no spaces)")
+                      .setStyle(TextInputStyle.Short)
+                      .setRequired(true)
+                      .setMinLength(1)
+                      .setMaxLength(5)
+                      .setValue(guildConfig!.prefix),
+                  ),
+                ),
+            );
+            const modal = await i
+              .awaitModalSubmit({
+                time: IDLE_TIMEOUT_MS,
+                filter: (m) =>
+                  m.customId === "cfg_prefix_modal" &&
+                  m.user.id === ctx.user.id,
+              })
+              .catch(() => null);
+            if (!modal || !modal.isFromMessage()) return;
+            collector.resetTimer();
+
+            const prefix = modal.fields.getTextInputValue("prefix").trim();
+            if (!prefix || /\s/.test(prefix)) {
+              await modal.reply(
                 asEmbed({
-                  content:
-                    "❌ Only the user who initiated the configuration command can interact with these buttons.",
+                  content: "❌ The prefix can't be empty or contain spaces.",
                   flags: MessageFlags.Ephemeral as const,
                 }),
               );
               return;
             }
-
-            const categoryKey = buttonInteraction.customId.replace(
-              "config_edit_",
-              "",
-            ) as ConfigCategoryKey;
-
-            const category = CONFIG_CATEGORIES.find(
-              (c) => c.key === categoryKey,
+            guildConfig = await GuildConfigService.updateConfig(guildId, {
+              prefix,
+            });
+            logger.info(
+              `Prefix for guild ${guildId} set to ${prefix} by ${ctx.user.tag}`,
             );
+            await modal.update(pageView(page, guildConfig));
+            return;
+          }
 
-            if (!category) {
-              await buttonInteraction.reply(
-                asEmbed({ content: "❌ Invalid category.", flags: MessageFlags.Ephemeral as const }),
-              );
-              return;
-            }
+          if (id.startsWith("cfg_edit_")) {
+            const category = CONFIG_CATEGORIES.find(
+              (c) => c.key === id.replace("cfg_edit_", ""),
+            );
+            if (!category) return;
+            await i.update(selectView(category, guildConfig!));
+            return;
+          }
 
-            const isChannel = category.type === "channel";
-
-            await buttonInteraction.reply({
-              embeds: [
-                new EmbedBuilder()
-                  .setTitle(`Edit ${category.title}`)
-                  .setDescription(category.description)
-                  .addFields({
-                    name: "Instructions",
-                    value: isChannel
-                      ? "Choose a channel from the menu below. Submit without selecting to clear it."
-                      : "Choose one or more roles from the menu below. Submit without selecting roles to clear this category.",
-                  })
-                  .setColor(CONSTANTS.EMBED_COLOR)
-                  .setTimestamp(),
-              ],
-              components: [
-                isChannel
-                  ? new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
-                      new ChannelSelectMenuBuilder()
-                        .setCustomId(`config_select_${categoryKey}`)
-                        .setPlaceholder(
-                          `Select a channel for ${category.title}`,
-                        )
-                        .setChannelTypes(
-                          category.type === "channel" && category.channelTypes
-                            ? category.channelTypes
-                            : [ChannelType.GuildText],
-                        )
-                        .setMinValues(0)
-                        .setMaxValues(1),
-                    )
-                  : new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
-                      new RoleSelectMenuBuilder()
-                        .setCustomId(`config_select_${categoryKey}`)
-                        .setPlaceholder(`Select roles for ${category.title}`)
-                        .setMinValues(0)
-                        .setMaxValues(25),
-                    ),
-              ],
-              flags: MessageFlags.Ephemeral,
+          if (
+            id.startsWith("cfg_select_") &&
+            (i.isRoleSelectMenu() || i.isChannelSelectMenu())
+          ) {
+            const category = CONFIG_CATEGORIES.find(
+              (c) => c.key === id.replace("cfg_select_", ""),
+            );
+            if (!category) return;
+            const newValue =
+              category.type === "channel" ? (i.values[0] ?? "") : i.values;
+            guildConfig = await GuildConfigService.updateConfig(guildId, {
+              [category.key]: newValue,
             });
+            logger.info(
+              `Configuration updated for guild ${guildId} by ${ctx.user.tag}`,
+            );
+            page = pageOf(category);
+            await i.update(pageView(page, guildConfig));
+          }
+        } catch (error) {
+          logger.error("Configuration panel interaction failed:", error);
+        }
+      });
 
-            const selectMessage = await buttonInteraction.fetchReply();
-
-            try {
-              const selectInteraction =
-                await selectMessage.awaitMessageComponent({
-                  componentType: isChannel
-                    ? ComponentType.ChannelSelect
-                    : ComponentType.RoleSelect,
-                  time: 60000,
-                  filter: (i) => i.user.id === ctx.user.id,
-                });
-
-              const newValue: string | string[] = isChannel
-                ? (selectInteraction.values[0] ?? "")
-                : selectInteraction.values;
-
-              (guildConfig as unknown as Record<string, string | string[]>)[
-                categoryKey
-              ] = newValue;
-
-              await GuildConfigService.updateConfig(guildId, {
-                [categoryKey]: newValue,
-              });
-
-              const updatedDescription = isChannel
-                ? newValue
-                  ? `Now set to: <#${newValue}>`
-                  : "Cleared — no channel set"
-                : (newValue as string[]).length > 0
-                  ? `Now set to: ${(newValue as string[])
-                      .map((id) => `<@&${id}>`)
-                      .join(", ")}`
-                  : "No roles assigned";
-
-              await selectInteraction.update({
-                embeds: [
-                  new EmbedBuilder()
-                    .setTitle(`${category.title} Updated`)
-                    .setDescription(updatedDescription)
-                    .setColor(CONSTANTS.EMBED_COLOR)
-                    .setTimestamp(),
-                ],
-                components: [],
-              });
-
-              await message.edit({
-                embeds: [createConfigEmbed(guildConfig)],
-                components: editButtons,
-              });
-
-              logger.info(
-                `Configuration updated for guild ${guildId} by ${ctx.user.tag}`,
-              );
-
-              // Restart the 60 second button timer. Never start another
-              // collector here: each extra one would handle every later click again.
-              buttonCollector.resetTimer();
-            } catch {
-              await selectMessage.edit({
-                embeds: [
-                  new EmbedBuilder()
-                    .setTitle("Selection Timed Out")
-                    .setDescription("No selection was made within 60 seconds.")
-                    .setColor(CONSTANTS.EMBED_WARNING_COLOR),
-                ],
-                components: [],
-              });
-
-              // Return to the main configuration menu
-              await message.edit({
-                embeds: [createConfigEmbed(guildConfig)],
-                components: editButtons,
-              });
-
-              buttonCollector.resetTimer();
-            }
-          },
-        );
-
-        buttonCollector.once("end", (_, reason) => {
-          if (reason !== "time") return;
-
-          const disabledRows = editButtons.map((row) => {
-            const newRow = new ActionRowBuilder<ButtonBuilder>();
-
-            row.components.forEach((component) => {
-              if (component instanceof ButtonBuilder) {
-                newRow.addComponents(
-                  ButtonBuilder.from(component).setDisabled(true),
-                );
-              }
-            });
-
-            return newRow;
-          });
-
-          ctx
-            .editReply({
-              content:
-                "⏰ Configuration timed out after 60 seconds. Please run `/server configuration` again.",
-              embeds: [],
-              components: disabledRows,
-            })
-            .catch((err) => logger.error("Failed to update timeout:", err));
-        });
-      };
-
-      await waitForButton();
+      collector.once("end", (_, reason) => {
+        if (reason !== "idle") return;
+        message
+          .edit({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle("Configuration closed")
+                .setDescription(
+                  "Timed out after 5 minutes of inactivity. Run `/server config` again to continue.",
+                )
+                .setColor(CONSTANTS.EMBED_WARNING_COLOR),
+            ],
+            components: [],
+          })
+          .catch((err) =>
+            logger.error("Failed to close configuration panel:", err),
+          );
+      });
     } catch (error) {
       logger.error("Configuration command error:", error);
       await logCommandError(ctx, "/server configuration", error).catch(
