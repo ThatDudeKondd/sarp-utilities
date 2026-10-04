@@ -1,7 +1,7 @@
 import { readdirSync } from "fs";
 import { resolve } from "path";
 import { pathToFileURL } from "url";
-import { SlashCommandBuilder } from "discord.js";
+import { Guild, SlashCommandBuilder } from "discord.js";
 import { UnifiedCommand } from "../types/UnifiedCommand.js";
 import { buildSlashCommandData } from "../utils/defineCommand.js";
 import { logger } from "../utils/logger.js";
@@ -101,34 +101,25 @@ export class CommandLoader {
   }
 
   /**
-   * Registers the generated slash command data with Discord.
+   * Registers the slash commands per guild (instant, unlike global commands'
+   * propagation delay) for every guild given. One failing guild doesn't stop
+   * the rest.
    */
   static async registerSlashCommands(
-    client: any,
+    guilds: Iterable<Guild>,
     slashData: SlashCommandBuilder[],
-    guildIds: string[],
   ) {
-    try {
-      const commandData = slashData.map((builder) => builder.toJSON());
+    const commandData = slashData.map((builder) => builder.toJSON());
 
-      if (guildIds.length > 0) {
-        for (const guildId of guildIds) {
-          const guild = await client.guilds.fetch(guildId);
-          if (guild) {
-            await guild.commands.set(commandData);
-            logger.info(
-              `Registered ${commandData.length} commands to guild ${guildId}`,
-            );
-          }
-        }
-      } else {
-        await client.application?.commands.set(commandData);
-        logger.info(`Registered ${commandData.length} commands globally`);
+    for (const guild of guilds) {
+      try {
+        await guild.commands.set(commandData);
+        logger.info(
+          `Registered ${commandData.length} commands to guild ${guild.name} (${guild.id})`,
+        );
+      } catch (error) {
+        logger.error(`Failed to register slash commands in ${guild.id}:`, error);
       }
-
-      logger.success("Slash commands registered successfully");
-    } catch (error) {
-      logger.error("Failed to register slash commands:", error);
     }
   }
 }

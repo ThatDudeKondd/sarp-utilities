@@ -1,7 +1,7 @@
 import { logger } from "./logger.js";
 
 export function validateEnv(): void {
-  const requiredEnvVars = ["BOT_TOKEN", "CLIENT_ID", "GUILD_IDS"];
+  const requiredEnvVars = ["BOT_TOKEN", "CLIENT_ID"];
 
   const missing = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 

@@ -85,6 +85,11 @@ async function initializeBot() {
 // Event listeners
 client.on("clientReady", (readyClient) => onReady(readyClient, slashData));
 
+// Joining a new server: register commands there immediately.
+client.on("guildCreate", (guild) =>
+  CommandLoader.registerSlashCommands([guild], slashData),
+);
+
 client.on("messageCreate", (message) =>
   onMessageCreate(message, commands, aliases),
 );
