@@ -60,6 +60,7 @@ const jsk = new Jishaku(client, {
   security: true,
   updateCommand: "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
   restartCommand: "systemctl --user restart sarp-utilities.service",
+  promoteCommand: "/opt/sarp-project/sarp-utilities/promote-sarp.sh",
 });
 
 async function initializeBot() {

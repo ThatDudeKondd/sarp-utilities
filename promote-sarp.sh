@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Promotes testing -> prod: fast-forwards main to testing in every repo this
+# bot deploys from, then runs the normal deploy (pull, rebuild, restart).
+# Paths/branch mirror deploy-sarp.sh.
+set -euo pipefail
+
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+
+ROOT_DIR="/opt/sarp-project"
+BOT_DIR="$ROOT_DIR/sarp-utilities"
+DJSKO_DIR="$ROOT_DIR/djsko"
+BRANCH="main"
+SOURCE_BRANCH="testing"
+
+# Check every repo first so a non-fast-forward in one never leaves the
+# others half-promoted.
+for REPO_DIR in "$BOT_DIR" "$DJSKO_DIR"; do
+  cd "$REPO_DIR"
+  git fetch origin "$BRANCH" "$SOURCE_BRANCH"
+  if ! git merge-base --is-ancestor origin/"$BRANCH" origin/"$SOURCE_BRANCH"; then
+    echo "$(basename "$REPO_DIR"): $BRANCH has commits not in $SOURCE_BRANCH, can't fast-forward. Merge $BRANCH into $SOURCE_BRANCH first."
+    exit 1
+  fi
+done
+
+for REPO_DIR in "$BOT_DIR" "$DJSKO_DIR"; do
+  cd "$REPO_DIR"
+  echo "$(basename "$REPO_DIR"): $BRANCH $(git rev-parse --short origin/"$BRANCH") -> $(git rev-parse --short origin/"$SOURCE_BRANCH")"
+  git push origin "origin/$SOURCE_BRANCH:refs/heads/$BRANCH"
+done
+
+# The push also fires the webhook deploy; the deploy script's flock makes
+# whichever starts second skip, so this deploys exactly once either way.
+exec "$BOT_DIR/deploy-sarp.sh"
