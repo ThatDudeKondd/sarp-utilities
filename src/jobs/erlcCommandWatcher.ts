@@ -2,6 +2,7 @@ import { Client, EmbedBuilder } from "discord.js";
 import { config } from "../config/config.js";
 import { CONSTANTS } from "../config/constants.js";
 import { logger } from "../utils/logger.js";
+import { prisma } from "../database/client.js";
 
 const POLL_INTERVAL_MS = 10_000;
 // POST /command is limited to 1 request per 5s per server (per the API docs).
@@ -59,11 +60,16 @@ async function runErlcCommand(command: string): Promise<string> {
   return "failed (rate limited)";
 }
 
+/** Posts to every server's ER:LC log channel (set via `-server config`). */
 async function sendToAlertChannel(client: Client, embed: EmbedBuilder): Promise<void> {
-  const channelId = process.env.ERLC_LOG_CHANNEL_ID?.trim();
-  if (!channelId) return;
-  const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (channel?.isSendable()) await channel.send({ embeds: [embed] }).catch(() => {});
+  const configs = await prisma.guildConfig.findMany({
+    where: { erlcLogChannel: { not: "" } },
+    select: { erlcLogChannel: true },
+  });
+  for (const { erlcLogChannel } of configs) {
+    const channel = await client.channels.fetch(erlcLogChannel!).catch(() => null);
+    if (channel?.isSendable()) await channel.send({ embeds: [embed] }).catch(() => {});
+  }
 }
 
 async function punish(client: Client, entry: CommandLogEntry, robloxId: string) {
@@ -86,7 +92,7 @@ async function punish(client: Client, entry: CommandLogEntry, robloxId: string) 
 }
 
 /**
- * Polls the ER:LC command log, posts new commands to ERLC_LOG_CHANNEL_ID and
+ * Polls the ER:LC command log, posts new commands to each server's ER:LC log channel and
  * strips mod/admin from anyone who runs a dangerous command on everyone.
  * ER:LC has no push for `:` commands, so polling is the only option.
  */

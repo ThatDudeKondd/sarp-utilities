@@ -28,7 +28,7 @@ type RoleCategoryKey =
   | "administratorRoles"
   | "moderatorRoles";
 
-type ChannelCategoryKey = "infractionChannel" | "logsChannel";
+type ChannelCategoryKey = "infractionChannel" | "logsChannel" | "erlcLogChannel";
 
 type ConfigCategoryKey = RoleCategoryKey | ChannelCategoryKey;
 
@@ -96,6 +96,13 @@ const CONFIG_CATEGORIES: ConfigCategory[] = [
     key: "logsChannel",
     title: "Logs Channel",
     description: "Channel used for general server activity and audit logs.",
+    channelTypes: [ChannelType.GuildText],
+  },
+  {
+    type: "channel",
+    key: "erlcLogChannel",
+    title: "ER:LC Log Channel",
+    description: "Live in-game command log and mass-command alerts.",
     channelTypes: [ChannelType.GuildText],
   },
 ];

@@ -50,6 +50,7 @@ export class GuildConfigService {
         | "modLogChannelId"
         | "infractionChannel"
         | "logsChannel"
+        | "erlcLogChannel"
         | "directiveRoles"
         | "seniorHrRoles"
         | "managementRoles"
