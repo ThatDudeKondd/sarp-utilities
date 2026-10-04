@@ -60,15 +60,30 @@ async function runErlcCommand(command: string): Promise<string> {
   return "failed (rate limited)";
 }
 
-/** Posts to every server's ER:LC log channel (set via `-server config`). */
-async function sendToAlertChannel(client: Client, embed: EmbedBuilder): Promise<void> {
+/**
+ * Posts to every server's ER:LC log channel (set via `-server config`). With
+ * `pingSupervisors`, also pings that server's supervisor roles.
+ */
+async function sendToAlertChannel(
+  client: Client,
+  embed: EmbedBuilder,
+  pingSupervisors = false,
+): Promise<void> {
   const configs = await prisma.guildConfig.findMany({
     where: { erlcLogChannel: { not: "" } },
-    select: { erlcLogChannel: true },
+    select: { erlcLogChannel: true, supervisorRoles: true },
   });
-  for (const { erlcLogChannel } of configs) {
+  for (const { erlcLogChannel, supervisorRoles } of configs) {
     const channel = await client.channels.fetch(erlcLogChannel!).catch(() => null);
-    if (channel?.isSendable()) await channel.send({ embeds: [embed] }).catch(() => {});
+    if (!channel?.isSendable()) continue;
+    const roles = pingSupervisors ? supervisorRoles : [];
+    await channel
+      .send({
+        content: roles.map((id) => `<@&${id}>`).join(" ") || undefined,
+        embeds: [embed],
+        allowedMentions: { roles },
+      })
+      .catch(() => {});
   }
 }
 
@@ -88,6 +103,7 @@ async function punish(client: Client, entry: CommandLogEntry, robloxId: string) 
         `**${entry.Player.split(":")[0]}** ([${robloxId}](https://www.roblox.com/users/${robloxId}/profile)) ran \`${entry.Command}\` <t:${entry.Timestamp}:R>.\n\n${results.join("\n")}`,
       )
       .setTimestamp(),
+    true,
   );
 }
 
