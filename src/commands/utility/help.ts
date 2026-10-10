@@ -41,7 +41,21 @@ export default defineCommand({
       a.name.localeCompare(b.name),
     );
 
-    const commandList = commands.map(formatCommand).join("\n");
+    // Embed field values cap at 1024 chars, so split the list across as many fields as needed.
+    const commandFields: { name: string; value: string; inline: boolean }[] =
+      [];
+    for (const line of commands.map(formatCommand).join("\n").split("\n")) {
+      const last = commandFields.at(-1);
+      if (last && last.value.length + line.length + 1 <= 1024) {
+        last.value += "\n" + line;
+      } else {
+        commandFields.push({
+          name: commandFields.length ? "\u200b" : "Commands",
+          value: line,
+          inline: false,
+        });
+      }
+    }
 
     const helpEmbed = new EmbedBuilder()
       .setTitle("SARP Utils Help")
@@ -49,19 +63,12 @@ export default defineCommand({
         "Browse every available command for SARP Utils. Commands can be used through slash commands or the configured prefix.",
       )
       .setColor(CONSTANTS.EMBED_COLOR)
-      .addFields(
-        {
-          name: "Commands",
-          value: commandList,
-          inline: false,
-        },
-        {
-          name: "Notes",
-          value:
-            "Some commands require specific server role permissions. Only supervisors+ or configured SARP roles can manage server setup and run SARP actions.",
-          inline: false,
-        },
-      )
+      .addFields(...commandFields, {
+        name: "Notes",
+        value:
+          "Some commands require specific server role permissions. Only supervisors+ or configured SARP roles can manage server setup and run SARP actions.",
+        inline: false,
+      })
       .setFooter({ text: "SARP Utils • Use commands for more details" })
       .setTimestamp();
 
