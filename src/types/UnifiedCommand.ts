@@ -33,6 +33,8 @@ export interface SubCommand {
 export interface UnifiedCommand {
   name: string;
   description: string;
+  /** Folder under src/commands the command was loaded from; set by the loader. */
+  category?: string;
 
   aliases?: string[];
 

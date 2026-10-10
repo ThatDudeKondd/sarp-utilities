@@ -72,6 +72,7 @@ export class CommandLoader {
               continue;
             }
 
+            command.category = category;
             byName.set(command.name, command);
 
             for (const alias of command.aliases ?? []) {
