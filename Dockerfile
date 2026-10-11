@@ -2,6 +2,7 @@
 # is an npm workspace member and depends on the sibling djsko package.
 # e.g. docker build -f sarp-utilities/Dockerfile . (from /opt/sarp-project)
 FROM node:22-alpine AS builder
+RUN apk add --no-cache git bash openssh-client
 WORKDIR /app
 
 COPY package.json package-lock.json ./
