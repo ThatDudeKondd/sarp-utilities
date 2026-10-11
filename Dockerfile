@@ -4,6 +4,7 @@
 FROM node:22-alpine AS builder
 RUN apk add --no-cache git bash openssh-client
 WORKDIR /app
+ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
 COPY djsko djsko
@@ -16,7 +17,6 @@ RUN npm run build --workspace=sarp-utilities
 
 FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production
 
 COPY --from=builder /app /app
 
