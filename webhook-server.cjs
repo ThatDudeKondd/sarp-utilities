@@ -9,14 +9,20 @@ const SECRET = process.env.WEBHOOK_SECRET;
 // Repo full_name -> deploy script(s) to run. Add a new project here rather than
 // standing up a whole second tunnel/receiver/webhook secret for it.
 const DEPLOY_SCRIPTS = {
-  "ThatDudeKondd/SARP-Utilities": ["/opt/sarp-project/sarp-utilities/deploy-sarp.sh"],
+  "ThatDudeKondd/SARP-Utilities": [
+    "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
+  ],
   // djsko is a shared dependency of both bots -- redeploy both on a new release.
   "ThatDudeKondd/djsko": [
     "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
-    "/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh",
+    "/opt/sarp-project/pelican-restart.sh 5ba45164",
   ],
-  "ThatDudeKondd/sarp-tickets": ["/opt/sarp-project/sarp-tickets/deploy-sarp-tickets.sh"],
-  "ThatDudeKondd/sarp-tickets-web": ["/opt/sarp-project/sarp-tickets-web/deploy-sarp-tickets-web.sh"],
+  "ThatDudeKondd/sarp-tickets": [
+    "/opt/sarp-project/pelican-restart.sh 5ba45164",
+  ],
+  "ThatDudeKondd/sarp-tickets-web": [
+    "/opt/sarp-project/sarp-tickets-web/deploy-sarp-tickets-web.sh",
+  ],
 };
 
 if (!SECRET) {
@@ -67,7 +73,9 @@ const server = http.createServer((req, res) => {
     }
 
     if (payload.ref !== "refs/heads/main") {
-      console.log(`[${new Date().toISOString()}] Ignored push to ${payload.ref}`);
+      console.log(
+        `[${new Date().toISOString()}] Ignored push to ${payload.ref}`,
+      );
       res.writeHead(200);
       return res.end("Ignored (not main branch)");
     }
@@ -76,12 +84,16 @@ const server = http.createServer((req, res) => {
     const deployScripts = repoName && DEPLOY_SCRIPTS[repoName];
 
     if (!deployScripts) {
-      console.log(`[${new Date().toISOString()}] No deploy script configured for ${repoName}`);
+      console.log(
+        `[${new Date().toISOString()}] No deploy script configured for ${repoName}`,
+      );
       res.writeHead(200);
       return res.end("Ignored (unconfigured repo)");
     }
 
-    console.log(`[${new Date().toISOString()}] Push to main on ${repoName}, triggering deploy`);
+    console.log(
+      `[${new Date().toISOString()}] Push to main on ${repoName}, triggering deploy`,
+    );
     res.writeHead(200);
     res.end("Deploy triggered");
 
@@ -89,7 +101,8 @@ const server = http.createServer((req, res) => {
       exec(deployScript, (err, stdout, stderr) => {
         if (stdout) console.log(stdout);
         if (stderr) console.error(stderr);
-        if (err) console.error(`Deploy script exited with error: ${err.message}`);
+        if (err)
+          console.error(`Deploy script exited with error: ${err.message}`);
       });
     }
   });
@@ -125,10 +138,14 @@ const usedSignatures = new Map(); // signature -> expiry, blocks replays within 
 let promoting = false;
 
 function promoteSignatureValid(timestamp, body, signatureHeader) {
-  if (typeof timestamp !== "string" || typeof signatureHeader !== "string") return false;
+  if (typeof timestamp !== "string" || typeof signatureHeader !== "string")
+    return false;
   const expected =
     "sha256=" +
-    crypto.createHmac("sha256", PROMOTE_SECRET).update(`${timestamp}.${body}`).digest("hex");
+    crypto
+      .createHmac("sha256", PROMOTE_SECRET)
+      .update(`${timestamp}.${body}`)
+      .digest("hex");
   const a = Buffer.from(expected);
   const b = Buffer.from(signatureHeader);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -140,10 +157,15 @@ function promoteReply(res, status, text) {
 }
 
 const promoteServer = http.createServer((req, res) => {
-  const log = (msg) => console.log(`[${new Date().toISOString()}] [promote] ${msg}`);
+  const log = (msg) =>
+    console.log(`[${new Date().toISOString()}] [promote] ${msg}`);
 
   // Defense in depth: if a tunnel/proxy is ever pointed at this port, refuse.
-  if (req.headers["cf-connecting-ip"] || req.headers["cf-ray"] || req.headers["x-forwarded-for"]) {
+  if (
+    req.headers["cf-connecting-ip"] ||
+    req.headers["cf-ray"] ||
+    req.headers["x-forwarded-for"]
+  ) {
     log("Rejected: proxied request");
     return promoteReply(res, 403, "Forbidden");
   }
@@ -174,12 +196,16 @@ const promoteServer = http.createServer((req, res) => {
       log("Rejected: bad signature");
       return promoteReply(res, 401, "Invalid signature");
     }
-    if (!/^\d{10,16}$/.test(timestamp) || Math.abs(Date.now() - Number(timestamp)) > PROMOTE_MAX_SKEW_MS) {
+    if (
+      !/^\d{10,16}$/.test(timestamp) ||
+      Math.abs(Date.now() - Number(timestamp)) > PROMOTE_MAX_SKEW_MS
+    ) {
       log("Rejected: stale timestamp");
       return promoteReply(res, 401, "Stale request");
     }
     const now = Date.now();
-    for (const [sig, expiry] of usedSignatures) if (expiry < now) usedSignatures.delete(sig);
+    for (const [sig, expiry] of usedSignatures)
+      if (expiry < now) usedSignatures.delete(sig);
     if (usedSignatures.has(signature)) {
       log("Rejected: replayed request");
       return promoteReply(res, 401, "Replayed request");
@@ -192,24 +218,32 @@ const promoteServer = http.createServer((req, res) => {
     } catch {
       return promoteReply(res, 400, "Bad payload");
     }
-    const script = Object.hasOwn(PROMOTE_SCRIPTS, bot) ? PROMOTE_SCRIPTS[bot] : null;
+    const script = Object.hasOwn(PROMOTE_SCRIPTS, bot)
+      ? PROMOTE_SCRIPTS[bot]
+      : null;
     if (!script) return promoteReply(res, 400, "Unknown bot");
 
-    if (promoting) return promoteReply(res, 409, "A promote is already running");
+    if (promoting)
+      return promoteReply(res, 409, "A promote is already running");
     promoting = true;
     log(`Promoting ${bot}`);
 
     // execFile, no shell: the mapped path is the only thing executed.
-    execFile(script, [], { timeout: 120_000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
-      promoting = false;
-      const output = `${stdout}${stderr}`.trim().slice(-1500);
-      if (err) {
-        log(`Promote of ${bot} failed: ${err.message}\n${output}`);
-        return promoteReply(res, 500, output || err.message);
-      }
-      log(`Promoted ${bot}\n${output}`);
-      promoteReply(res, 200, output || "Promoted.");
-    });
+    execFile(
+      script,
+      [],
+      { timeout: 120_000, maxBuffer: 1024 * 1024 },
+      (err, stdout, stderr) => {
+        promoting = false;
+        const output = `${stdout}${stderr}`.trim().slice(-1500);
+        if (err) {
+          log(`Promote of ${bot} failed: ${err.message}\n${output}`);
+          return promoteReply(res, 500, output || err.message);
+        }
+        log(`Promoted ${bot}\n${output}`);
+        promoteReply(res, 200, output || "Promoted.");
+      },
+    );
   });
 });
 
@@ -224,5 +258,7 @@ if (PROMOTE_SECRET.length >= 32) {
     console.log(`Promote receiver listening on 127.0.0.1:${PROMOTE_PORT}`);
   });
 } else {
-  console.log("PROMOTE_SECRET unset or shorter than 32 chars -- promote receiver disabled.");
+  console.log(
+    "PROMOTE_SECRET unset or shorter than 32 chars -- promote receiver disabled.",
+  );
 }
