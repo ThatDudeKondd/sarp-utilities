@@ -10,18 +10,18 @@ const SECRET = process.env.WEBHOOK_SECRET;
 // standing up a whole second tunnel/receiver/webhook secret for it.
 const DEPLOY_SCRIPTS = {
   "ThatDudeKondd/SARP-Utilities": [
-    "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
+    "/opt/sarp-project/pelican-restart.sh 26989875",
   ],
   // djsko is a shared dependency of both bots -- redeploy both on a new release.
   "ThatDudeKondd/djsko": [
-    "/opt/sarp-project/sarp-utilities/deploy-sarp.sh",
+    "/opt/sarp-project/pelican-restart.sh 26989875",
     "/opt/sarp-project/pelican-restart.sh 5ba45164",
   ],
   "ThatDudeKondd/sarp-tickets": [
     "/opt/sarp-project/pelican-restart.sh 5ba45164",
   ],
   "ThatDudeKondd/sarp-tickets-web": [
-    "/opt/sarp-project/sarp-tickets-web/deploy-sarp-tickets-web.sh",
+    "/opt/sarp-project/pelican-restart.sh e2e4db5a",
   ],
 };
 
