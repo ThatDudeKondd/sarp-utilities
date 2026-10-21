@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/node";
+
 enum LogLevel {
   INFO = "INFO",
   WARN = "WARN",
@@ -28,6 +30,11 @@ class Logger {
 
   error(message: string, data?: unknown) {
     this.log(LogLevel.ERROR, message, data);
+    if (data !== undefined) {
+      Sentry.captureException(data instanceof Error ? data : new Error(message), {
+        extra: { logMessage: message },
+      });
+    }
   }
 
   debug(message: string, data?: unknown) {

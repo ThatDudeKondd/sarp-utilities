@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { Message, ChatInputCommandInteraction, MessageFlags } from "discord.js";
 import { logger } from "../utils/logger.js";
 import { checkCommandCooldown } from "../middleware/cooldown.js";
@@ -204,7 +205,27 @@ export class CommandHandler {
    * complete audit trail rather than something that has to be remembered
    * per command.
    */
-  private static async executeCommand(
+  private static executeCommand(
+    ctx: CommandContext,
+    command: UnifiedCommand | SubCommand,
+    commandDisplay: string,
+    userTag: string,
+  ): Promise<void> {
+    return Sentry.withIsolationScope((scope) => {
+      scope.setTag("command", commandDisplay);
+      scope.setTag("guild_id", ctx.guild?.id ?? "dm");
+      return Sentry.startSpan(
+  {
+    name: commandDisplay,
+    op: "discord.command",
+    attributes: { command: commandDisplay, guild_id: ctx.guild?.id ?? "dm" },
+  },
+  () => this.executeCommandInner(ctx, command, commandDisplay, userTag),
+);
+    });
+  }
+
+  private static async executeCommandInner(
     ctx: CommandContext,
     command: UnifiedCommand | SubCommand,
     commandDisplay: string,

@@ -23,6 +23,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
+    "@sentry/node": "^11.8.0",
+    "@sentry/profiling-node": "^11.8.0",
     "discord.js": "^14.14.0",
     "djsko": "github:ThatDudeKondd/djsko",
     "dotenv": "^17.4.2",

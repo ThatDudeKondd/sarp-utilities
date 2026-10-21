@@ -1,0 +1,22 @@
+name: Sentry release
+on:
+  push:
+    branches: [main]
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create release and record deploy
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: na-9x6
+          SENTRY_PROJECT: sarp-utilities
+          VERSION: sarp-utilities@${{ github.sha }}
+        run: |
+          npx @sentry/cli releases new "$VERSION"
+          npx @sentry/cli releases set-commits "$VERSION" --auto
+          npx @sentry/cli releases finalize "$VERSION"
+          npx @sentry/cli releases deploys "$VERSION" new -e production

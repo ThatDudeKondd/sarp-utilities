@@ -24,6 +24,7 @@ import {
 import { setCommandRegistry } from "./loaders/commandRegistry.js";
 import { UnifiedCommand } from "./types/UnifiedCommand.js";
 import { Jishaku } from "djsko";
+import * as Sentry from "@sentry/node";
 
 // Get __dirname equivalent for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -119,7 +120,9 @@ client.on("guildMemberUpdate", (oldMember, newMember) => {
   }
   for (const roleId of oldMember.roles.cache.keys()) {
     if (!newMember.roles.cache.has(roleId)) {
-      onRoleChanged(client, id, guild.id, roleId, false).catch(logRoleSyncError);
+      onRoleChanged(client, id, guild.id, roleId, false).catch(
+        logRoleSyncError,
+      );
     }
   }
 });
@@ -137,6 +140,10 @@ client.on("error", (error) => {
   logger.error("Discord client error:", error);
 });
 
+client.on("shardError", (error) => {
+  logger.error("Discord shard error:", error);
+});
+
 process.on("unhandledRejection", (reason) => {
   logger.error("Unhandled Rejection:", reason);
 });
@@ -148,7 +155,7 @@ async function shutdown() {
   const forceExit = setTimeout(() => {
     logger.error("Shutdown timed out, forcing exit.");
     process.exit(1);
-  }, 3000);
+  }, 5000);
   forceExit.unref();
 
   try {
@@ -156,7 +163,9 @@ async function shutdown() {
     await client.destroy();
   } catch (error) {
     logger.error("Error during shutdown:", error);
+    Sentry.captureException(error);
   } finally {
+    await Sentry.close(2000).catch(() => {});
     clearTimeout(forceExit);
     process.exit(0);
   }
