@@ -7,7 +7,7 @@ import { prisma } from "../database/client.js";
  * Prisma's delegates are lazy proxies that `mock.method` can't patch, so the
  * whole property is swapped. Returns a restore function.
  */
-export function stubPrisma<K extends "roleLink" | "guildConfig">(
+export function stubPrisma<K extends "roleLink" | "guildConfig" | "user" | "infraction">(
   model: K,
   impl: Record<string, (...args: any[]) => unknown>,
 ): () => void {

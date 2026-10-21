@@ -42,9 +42,21 @@ export default defineCommand({
     const punishment = ctx.getString("punishment");
     const reason = ctx.getString("reason");
 
-    const infracteeData = await prisma.user.findUnique({
-      where: { userId: infractee?.id },
-    });
+    // Prefix invocations don't enforce `required` options, and a user arg only
+    // resolves if it's a mention or a cached user -- so validate before any DB work.
+    if (!infractee || !punishment || !reason) {
+      const embed = createErrorEmbed(
+        "Missing or invalid arguments.",
+        "Usage: `-infract @user <punishment> <reason>` (the user must be @mentioned).",
+      );
+
+      await ctx.editReply({
+        embeds: [embed],
+        flags: MessageFlags.Ephemeral,
+      });
+
+      return;
+    }
 
     const guildData = await GuildConfigService.getConfig(ctx.guild?.id ?? "");
 
@@ -70,10 +82,6 @@ export default defineCommand({
         flags: MessageFlags.Ephemeral,
       });
 
-      return;
-    }
-
-    if (!infractee || !punishment || !reason) {
       return;
     }
 
