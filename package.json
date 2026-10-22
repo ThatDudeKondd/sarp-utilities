@@ -21,7 +21,7 @@
     "db:update": "npm run db:format && npm run db:push && npm run db:gen"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@sentry/node": "^11.8.0",
     "@sentry/profiling-node": "^11.8.0",
@@ -34,14 +34,14 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "nodemon": "^3.0.2",
-    "prisma": "^8.0.0-rc.24",
+    "prisma": "^7.10.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.1",
     "typescript": "^5.3.3"
   },
   "allowScripts": {
     "djsko": true,
-    "prisma@7.9.0": true,
-    "@prisma/engines@7.9.0": true
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true
   }
 }
